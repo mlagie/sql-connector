@@ -1,6 +1,6 @@
 {
   "name": "@mlagie/sql-connector",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "description": "Le module sql-connector permet de gérer les connexions à une base de données MySQL, de définir des schémas de tables, et d'interagir avec les données de manière simple et efficace.",
   "main": "index.js",
   "scripts": {
@@ -12,7 +12,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lagie-marin/sql-connector.git"
+    "url": "git+https://github.com/mlagie/sql-connector.git"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
