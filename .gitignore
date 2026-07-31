@@ -2,4 +2,3 @@ node_modules
 publish
 env.sh
 coverage
-scripts

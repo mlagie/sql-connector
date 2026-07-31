@@ -3,11 +3,18 @@
   "version": "2.0.9",
   "description": "Le module sql-connector permet de gérer les connexions à une base de données MySQL, de définir des schémas de tables, et d'interagir avec les données de manière simple et efficace.",
   "main": "index.js",
+  "files": [
+    "src",
+    "docs",
+    "index.d.ts",
+    "index.js"
+  ],
   "scripts": {
     "test": "rm -r coverage ; node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:publish": "npm publish --dry-run",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:coverage": "rm -r coverage ; node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "coverage:report": "node scripts/coverage-report.js",
     "security": "npx eslint . --max-warnings 0 --ignore-pattern './tests/*'"
   },
   "repository": {
@@ -44,12 +51,21 @@
   "private": false,
   "dependencies": {
     "@mlagie/logger": "1.0.2",
-    "mysql2": "3.22.5"
+    "mysql2": "3.23.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.6.0",
+    "eslint": "^10.8.0",
     "eslint-plugin-security": "^4.0.1",
-    "jest": "^30.4.2"
+    "jest": "30.4.2"
+  },
+  "overrides": {
+    "test-exclude": "^8.0.0",
+    "glob": "^13.0.6",
+    "minimatch": "^10.2.2",
+    "brace-expansion": "^5.0.9"
+  },
+  "allowScripts": {
+    "unrs-resolver@1.12.2": true
   }
 }
