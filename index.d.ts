@@ -12,12 +12,11 @@ export type SqlType =
     | "Text"
     | "DateTime"
     | "Timestamp";
-
 export interface SchemaField {
     type: SqlType | { name: SqlType };
     length?: number;
     required?: boolean;
-    default?: any;
+    default?: any | SqlType | "CurrentTimestamp";
     unique?: boolean;
     auto_increment?: boolean;
     foreignKey?: string;
@@ -218,4 +217,3 @@ export class ModelInstance {
 }
 
 export const client: Record<string, any>;
-export const sqlTypeMap: Record<SqlType, string>;
