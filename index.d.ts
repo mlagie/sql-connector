@@ -114,7 +114,7 @@ export class Model {
      * @param {number} [options.limit] - Result limit.
      * @returns {Promise<Array<Object>>}
      */
-    static find(options?: {
+    find(options?: {
         select?: string[];
         where?: Record<string, any>;
         order?: [string, string][];
