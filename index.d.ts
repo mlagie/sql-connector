@@ -119,20 +119,20 @@ export class Model {
         where?: Record<string, any>;
         order?: [string, string][];
         limit?: number;
-    }): Promise<any[]>;
+    }): Promise<Array<ModelInstance>>;
     /**
      * 
      * @param {Object} filter The filter criteria for the query. Should be an object where keys are column names and values are the values to filter by.
      * @returns {Promise<ModelInstance|number>} - A promise that resolves to a `ModelInstance` if a record is found, or `0` if no records match the filter.
      */
-    count(filter?: Record<string, any>): Promise<any>;
+    count(filter?: Record<string, any>): Promise<ModelInstance | number>;
     /**
      * Runs a custom SQL_request query.
      * @param {string} custom The custom SQL_request query to execute.
      * @returns {Promise<void>} A promise that resolves when the query is executed.
      * @throws {Error} Throws an error if query execution fails.
      */
-    customRequest(custom: string): Promise<any>;
+    customRequest(custom: string): Promise<ModelInstance>;
     /**
      * Deletes a record from the SQL table corresponding to the provided filter.
      *
@@ -143,7 +143,7 @@ export class Model {
      * or an instance of ModelInstance representing the deleted row.
      * @throws {Error} Throws an error if the SQL query fails.
      */
-    delete(filter: Record<string, any>): Promise<number | ModelInstance>;
+    delete(filter: Record<string, any>): Promise<number>;
     /**
      * Asynchronously drops a table if it exists in the database.
      *

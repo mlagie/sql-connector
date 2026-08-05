@@ -315,7 +315,7 @@ class Model {
     /**
      * Runs a custom SQL_request query.
      * @param {string} custom The custom SQL_request query to execute.
-     * @returns {Promise<void>} A promise that resolves when the query is executed.
+     * @returns {Promise<ModelInstance>} A promise that resolves when the query is executed.
      * @throws {Error} Throws an error if query execution fails.
      */
     async customRequest(custom, custom_err_name = "") {

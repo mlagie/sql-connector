@@ -159,8 +159,6 @@ class ModelInstance {
      */
     async deleteOne() {
         const sql_request = `DELETE FROM ${this._name} WHERE ${generateCondition(formatObject(this.getRecordData()))}`;
-
-        logs(sql_request)
         const rows = await getConnexion().promise().execute(sql_request).catch((err) => {
             error(`Error executing query deleteOne: ${err}`);
             throw err;

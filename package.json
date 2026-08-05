@@ -1,6 +1,6 @@
 {
   "name": "@mlagie/sql-connector",
-  "version": "2.0.13",
+  "version": "2.0.14",
   "description": "The sql-connector module allows you to manage connections to a MySQL database, define table schemas, and interact with data in a simple and efficient way.",
   "main": "index.js",
   "files": [
@@ -51,8 +51,8 @@
   "homepage": "https://github.com/mlagie/sql-connector#readme",
   "private": false,
   "dependencies": {
-    "@mlagie/logger": "1.0.2",
-    "mysql2": "3.23.1"
+    "@mlagie/logger": "1.0.5",
+    "mysql2": "3.23.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
