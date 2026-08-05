@@ -12,8 +12,18 @@ export type SqlType =
     | "Text"
     | "DateTime"
     | "Timestamp";
+export type SqlTypeConstructor =
+    | StringConstructor
+    | NumberConstructor
+    | BooleanConstructor
+    | DateConstructor
+    | ObjectConstructor
+    | ArrayConstructor;
+
+export type SchemaTypeInput = SqlType | { name: SqlType } | SqlTypeConstructor;
+
 export interface SchemaField {
-    type: SqlType | { name: SqlType };
+    type: SchemaTypeInput;
     length?: number;
     required?: boolean;
     default?: any | SqlType | "CurrentTimestamp";
@@ -28,6 +38,71 @@ export interface SchemaField {
 export interface SchemaDict {
     [key: string]: SchemaField;
 }
+
+type NormalizeSqlType<T> =
+    T extends { name: infer Name }
+        ? NormalizeSqlType<Name>
+        : T extends StringConstructor
+            ? "String"
+            : T extends NumberConstructor
+                ? "Number"
+                : T extends BooleanConstructor
+                    ? "Boolean"
+                    : T extends DateConstructor
+                        ? "Date"
+                        : T extends ObjectConstructor
+                            ? "Object"
+                            : T extends ArrayConstructor
+                                ? "Array"
+                                : T extends SqlType
+                                    ? T
+                                    : never;
+
+type InferSqlType<T> =
+    NormalizeSqlType<T> extends "String" | "Text"
+        ? string
+        : NormalizeSqlType<T> extends "Number" | "Float"
+            ? number
+            : NormalizeSqlType<T> extends "Boolean"
+                ? boolean
+                : NormalizeSqlType<T> extends "Date" | "DateTime" | "Timestamp" | "Now"
+                    ? Date
+                    : NormalizeSqlType<T> extends "Object"
+                        ? Record<string, unknown>
+                        : NormalizeSqlType<T> extends "Array"
+                            ? unknown[]
+                            : unknown;
+
+type HasKey<T, K extends PropertyKey> = K extends keyof T ? true : false;
+
+type InferFieldValue<TField> =
+    InferSqlType<TField extends { type: infer T } ? T : TField>;
+
+type InferFieldNullable<TField> =
+    TField extends { required: true }
+        ? false
+        : TField extends { primary_key: true }
+            ? false
+            : TField extends { auto_increment: true }
+                ? false
+                : HasKey<TField, "default"> extends true
+                    ? false
+                    : true;
+
+export type InferSchema<TSchema extends SchemaDict> = {
+    [K in keyof TSchema]: InferFieldNullable<TSchema[K]> extends true
+        ? InferFieldValue<TSchema[K]> | null
+        : InferFieldValue<TSchema[K]>;
+};
+
+export type SchemaLike<TSchema extends SchemaDict = SchemaDict> =
+    | Schema<TSchema>
+    | {
+        schemaDict: TSchema;
+        schema?: TSchema;
+    };
+
+export type ModelRecord<TData extends Record<string, any> = Record<string, any>> = ModelInstance<TData> & TData;
 
 /**
  * Represents a database schema.
@@ -44,9 +119,10 @@ export interface SchemaDict {
  *     }
  * });
  */
-export class Schema {
-    constructor(schemaDict: SchemaDict);
-    schemaDict: SchemaDict;
+export class Schema<TSchema extends SchemaDict = SchemaDict> {
+    constructor(schemaDict: TSchema);
+    schemaDict: TSchema;
+    schema: TSchema;
 }
 
 /**
@@ -87,12 +163,12 @@ export function logout(): Promise<void>;
  * Represents a database model.
  * @class
  */
-export class Model {
+export class Model<TSchema extends SchemaDict = SchemaDict> {
     static sqlTypeMap: Record<SqlType, string>;
     static pendingModels: Model[];
     name: string;
-    schema: Schema;
-    constructor(name: string, schema: Schema);
+    schema: SchemaLike<TSchema>;
+    constructor(name: string, schema: SchemaLike<TSchema>);
     /**
      * Creates all tables in the correct order based on foreign keys.
      * @returns {Promise<void>}
@@ -104,7 +180,7 @@ export class Model {
      * @returns {Promise<Object>} A promise that resolves with the result of the insertion.
      * @throws {Error} Throws an error if the insert fails.
      */
-    save(data: Record<string, any>): Promise<any>;
+    save(data: Partial<InferSchema<TSchema>>): Promise<any>;
     /**
      * Retrieves multiple rows from the table.
      * @param {Object} [options] - Query options (attributes, where, order, limit).
@@ -116,23 +192,23 @@ export class Model {
      */
     find(options?: {
         select?: string[];
-        where?: Record<string, any>;
+        where?: Record<string, any> | Partial<InferSchema<TSchema>> | string;
         order?: [string, string][];
         limit?: number;
-    }): Promise<Array<ModelInstance>>;
+    }): Promise<Array<ModelRecord<InferSchema<TSchema>>>>;
     /**
      * 
      * @param {Object} filter The filter criteria for the query. Should be an object where keys are column names and values are the values to filter by.
      * @returns {Promise<ModelInstance|number>} - A promise that resolves to a `ModelInstance` if a record is found, or `0` if no records match the filter.
      */
-    count(filter?: Record<string, any>): Promise<ModelInstance | number>;
+    count(filter?: Record<string, any> | Partial<InferSchema<TSchema>>): Promise<number>;
     /**
      * Runs a custom SQL_request query.
      * @param {string} custom The custom SQL_request query to execute.
      * @returns {Promise<void>} A promise that resolves when the query is executed.
      * @throws {Error} Throws an error if query execution fails.
      */
-    customRequest(custom: string): Promise<ModelInstance>;
+    customRequest<TResult extends Record<string, any> = InferSchema<TSchema>>(custom: string): Promise<ModelRecord<TResult> | 0>;
     /**
      * Deletes a record from the SQL table corresponding to the provided filter.
      *
@@ -143,7 +219,7 @@ export class Model {
      * or an instance of ModelInstance representing the deleted row.
      * @throws {Error} Throws an error if the SQL query fails.
      */
-    delete(filter: Record<string, any>): Promise<number>;
+    delete(filter: Record<string, any> | Partial<InferSchema<TSchema>>): Promise<number>;
     /**
      * Asynchronously drops a table if it exists in the database.
      *
@@ -181,11 +257,11 @@ export class Model {
  * Represents an instance of a database model.
  * @class
  */
-export class ModelInstance {
+export class ModelInstance<TData extends Record<string, any> = Record<string, any>> {
     name: string;
-    data: any;
-    schema?: Schema;
-    constructor(name: string, data: any, schema?: Schema);
+    data: TData;
+    schema?: SchemaLike<any>;
+    constructor(name: string, data: TData, schema?: SchemaLike<any>);
     /**
      * Updates a single entry in the database table.
      * 
@@ -193,14 +269,14 @@ export class ModelInstance {
      * @returns {int} A promise that resolves with updated data.
      * @throws {Error} Throws an error if the update fails.
      */
-    updateOne(model: Record<string, any>): Promise<number>;
+    updateOne(model: Partial<TData>): Promise<number>;
     /**
      * Deletes a single entry in the database table.
      * @param {Object} model An object containing the key-value pairs to use for deletion.
      * @returns {Promise<Object>} A promise that resolves with the data deleted.
      * @throws {Error} Throws an error if the deletion fails.
      */
-    delete(filter: Record<string, any>): Promise<number | ModelInstance>;
+    delete(filter: Record<string, any>): Promise<number>;
     /**
      * Deletes a single entry in the database table based on the instance data.
      * @returns {Promise<number>} A promise that resolves to the number of rows deleted.
@@ -213,7 +289,7 @@ export class ModelInstance {
      * @returns {Promise<void>} A promise that resolves when the query is executed.
      * @throws {Error} Throws an error if query execution fails.
      */
-    customRequest(custom: string): Promise<any>;
+    customRequest<TResult = any>(custom: string): Promise<TResult>;
 }
 
 export const client: Record<string, any>;

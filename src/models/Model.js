@@ -306,10 +306,24 @@ class Model {
     /**
      * Counts the number of records matching the given filter.
      * @param {Object} filter The filter criteria for the query. Should be an object where keys are column names and values are the values to filter by.
-     * @returns {Promise<ModelInstance|number>} - A promise that resolves to a `ModelInstance` if a record is found, or `0` if no records match the filter.
+     * @returns {Promise<number>} - A promise that resolves to the number of matching records.
      */
     async count(filter) {
-        return this.customRequest(`SELECT COUNT(*) as count FROM ${escapeIdentifier(this.name)} ${filter != undefined ? `WHERE ${generateCondition(formatObject(filter))}` : ""}`, "count");
+        try {
+            const rows = await getConnexion().promise().execute(`SELECT COUNT(*) as count FROM ${escapeIdentifier(this.name)} ${filter != undefined ? `WHERE ${generateCondition(formatObject(filter))}` : ""}`);
+            const resultRows = rows && Array.isArray(rows) ? rows[0] : [];
+
+            if (!resultRows || resultRows.length === 0) return 0;
+
+            const firstRow = resultRows[0];
+            if (!firstRow || typeof firstRow !== "object") return Number(firstRow) || 0;
+
+            const countValue = firstRow.count ?? firstRow["COUNT(*)"] ?? firstRow[Object.keys(firstRow)[0]];
+            return Number(countValue) || 0;
+        } catch (err) {
+            error(`Error executing query count: ${err}`);
+            throw err;
+        }
     }
 
     /**

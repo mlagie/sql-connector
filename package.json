@@ -1,8 +1,15 @@
 {
   "name": "@mlagie/sql-connector",
-  "version": "2.0.14",
+  "version": "2.1.0",
   "description": "The sql-connector module allows you to manage connections to a MySQL database, define table schemas, and interact with data in a simple and efficient way.",
   "main": "index.js",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "require": "./index.js",
+      "default": "./index.js"
+    }
+  },
   "files": [
     "src",
     "docs",
@@ -44,6 +51,13 @@
   "author": "lagie-marin",
   "license": "MIT",
   "types": "index.d.ts",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "index.d.ts"
+      ]
+    }
+  },
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/mlagie/sql-connector/issues"
