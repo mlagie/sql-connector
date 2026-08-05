@@ -1,4 +1,4 @@
-const { error, logs } = require("@mlagie/logger");
+const { error } = require("@mlagie/logger");
 const { getConnexion } = require("../db/connexion");
 const formatObject = require("../utils/formatObject");
 const generateCondition = require("../utils/generateCondition");
