@@ -53,6 +53,8 @@ await logout();
 | customize      | `string`                         | Options SQL additionnelles  |
 
 ```javascript
+const { Schema, Model, sqlTypeMap } = require("@mlagie/sql-connector");
+
 const userSchema = new Schema({
   id: {
     type: Number,
@@ -86,6 +88,8 @@ const userSchema = new Schema({
         default: sqlTypeMap.CurrentTimestamp
     }
 });
+
+module.exports = new Model("User", userSchema);
 ```
 
 ## Synchronisation des tables

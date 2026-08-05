@@ -117,10 +117,9 @@ const userSchema = new Schema({
         type: Date,
         default: sqlTypeMap.CurrentTimestamp
     }
-
-    module.exports = new Model("User", userSchema);
-
 });
+
+module.exports = new Model("User", userSchema);
 ```
 
 ## Table synchronization
