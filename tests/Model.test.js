@@ -631,7 +631,7 @@ describe("Model Unit Tests - Deep Coverage", () => {
         // Note: Pour tester indirectement getColumnDefinition, on l'appelle via generateCreateTableStatement
         const complexSchema = {
             created_at: { type: Date, default: () => new Date() }, // Ligne 34
-            updated_at: { type: "Timestamp", default: "NOW()" },        // Ligne 37
+            updated_at: { type: "Timestamp", default: "Now" },        // Ligne 37
             metadata: { type: Boolean, default: false }       // Ligne 49
         };
         const sql = myModel.generateCreateTableStatement(complexSchema);
@@ -653,7 +653,7 @@ describe("Model Unit Tests - Deep Coverage", () => {
         const modelB = new Model("TableB", { schemaDict: { a_id: { foreignKey: "TableA(id)" } } });
 
         // Ligne 163 : Doit lever une erreur à cause de la boucle TableA -> TableB -> TableA
-        await expect(Model.syncAllTables()).rejects.toThrow("Cyclic foreign key dependency detected");
+        await expect(Model.syncAllTables()).rejects.toThrow("Cyclic foreign key dependency detected: TableA -> TableB -> TableA");
 
         // Cas nominal : Nettoyage et ré-empilement de modèles sans cycle
         Model.pendingModels = [];

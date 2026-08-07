@@ -26,7 +26,7 @@ function isSqlTemporalDefault(defaultValue) {
     if (typeof defaultValue !== "string") return false;
 
     const normalizedValue = defaultValue.trim().toUpperCase();
-    return ["CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP()", "NOW()"].includes(normalizedValue);
+    return ["CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP()", "NOW", "NOW()"].includes(normalizedValue);
 }
 
 function formatDefaultSql(defaultValue, fieldType) {
@@ -144,13 +144,17 @@ class Model {
 
         const sorted = [];
         const visited = {};
-        function visit(table) {
+        function visit(table, stack = []) {
             if (getSafe(visited, table) === true) return;
-            if (getSafe(visited, table) === 'temp') throw new Error('Cyclic foreign key dependency detected');
+            const cycleStartIndex = stack.indexOf(table);
+            if (cycleStartIndex !== -1) {
+                const cyclePath = [...stack.slice(cycleStartIndex), table];
+                throw new Error(`Cyclic foreign key dependency detected: ${cyclePath.join(' -> ')}`);
+            }
             setSafe(visited, table, 'temp');
             const deps = getSafe(dependencies, table)
             for (const dep of deps) {
-                if (getSafe(modelMap, dep)) visit(dep);
+                if (getSafe(modelMap, dep)) visit(dep, [...stack, table]);
             }
             setSafe(visited, table, true);
             sorted.push(table);
