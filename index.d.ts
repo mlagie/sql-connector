@@ -40,9 +40,7 @@ export interface SchemaDict {
 }
 
 type NormalizeSqlType<T> =
-    T extends { name: infer Name }
-        ? NormalizeSqlType<Name>
-        : T extends StringConstructor
+    T extends StringConstructor
             ? "String"
             : T extends NumberConstructor
                 ? "Number"
@@ -56,7 +54,9 @@ type NormalizeSqlType<T> =
                                 ? "Array"
                                 : T extends SqlType
                                     ? T
-                                    : never;
+                                    : T extends { name: SqlType }
+                                        ? T["name"]
+                                        : never;
 
 type InferSqlType<T> =
     NormalizeSqlType<T> extends "String" | "Text"
@@ -85,6 +85,8 @@ type InferFieldNullable<TField> =
             ? false
             : TField extends { auto_increment: true }
                 ? false
+                : TField extends { default: null }
+                    ? true
                 : HasKey<TField, "default"> extends true
                     ? false
                     : true;
