@@ -39,6 +39,17 @@ export interface SchemaDict {
     [key: string]: SchemaField;
 }
 
+export type SelectAggregation = {
+    col?: string;
+    sum?: string;
+    distinct?: string;
+    dateFormat?: [string, string];
+    count?: string | string[] | Record<string, any>;
+    as?: string;
+};
+
+export type SelectItem = string | SelectAggregation;
+
 type NormalizeSqlType<T> =
     T extends StringConstructor
             ? "String"
@@ -193,7 +204,7 @@ export class Model<TSchema extends SchemaDict = SchemaDict> {
      * @returns {Promise<Array<Object>>}
      */
     find(options?: {
-        select?: string[];
+        select?: SelectItem[];
         where?: Record<string, any> | Partial<InferSchema<TSchema>> | string;
         order?: [string, string][];
         limit?: number;
