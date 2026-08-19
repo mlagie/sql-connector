@@ -50,6 +50,32 @@ export type SelectAggregation = {
 
 export type SelectItem = string | SelectAggregation;
 
+export type WhereOperator =
+    | "="
+    | "!="
+    | ">"
+    | "<"
+    | ">="
+    | "<="
+    | "LIKE"
+    | "IN"
+    | "NOT IN";
+
+export type WhereOperatorObject = {
+    [K in WhereOperator]?: any;
+};
+
+export interface WhereClause {
+    AND?: WhereClause[];
+    OR?: WhereClause[];
+
+    [key: string]:
+        | any
+        | WhereClause[]
+        | WhereOperatorObject
+        | undefined;
+}
+
 type NormalizeSqlType<T> =
     T extends StringConstructor
             ? "String"
@@ -205,7 +231,7 @@ export class Model<TSchema extends SchemaDict = SchemaDict> {
      */
     find(options?: {
         select?: SelectItem[];
-        where?: Record<string, any> | Partial<InferSchema<TSchema>> | string;
+        where?: WhereClause
         order?: [string, string][];
         limit?: number;
     }): Promise<Array<ModelRecord<InferSchema<TSchema>>>>;

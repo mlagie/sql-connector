@@ -59,16 +59,79 @@ function buildSelect(select = []) {
         .join(',\n');
 }
 
+function buildWhere(where, values = []) {
+    const conditions = [];
+
+    for (const [key, value] of Object.entries(where)) {
+        if (key === "OR") {
+            const clauses = value
+                .map((item) => buildWhere(item, values))
+                .filter(Boolean);
+
+            if (clauses.length) {
+                conditions.push(`(${clauses.join(" OR ")})`);
+            }
+
+            continue;
+        }
+
+        if (key === "AND") {
+            const clauses = value
+                .map((item) => buildWhere(item, values))
+                .filter(Boolean);
+
+            if (clauses.length) {
+                conditions.push(`(${clauses.join(" AND ")})`);
+            }
+
+            continue;
+        }
+
+        if (value && typeof value === "object" && !Array.isArray(value)) {
+            const operators = Object.keys(value);
+
+            const isOperatorObject = operators.some((op) =>
+                ["=", "!=", ">", "<", ">=", "<=", "LIKE", "IN", "NOT IN"].includes(op)
+            );
+
+            if (isOperatorObject) {
+                for (const [operator, operatorValue] of Object.entries(value)) {
+                    if (operator === "IN" || operator === "NOT IN") {
+                        const placeholders = operatorValue
+                            .map(() => "?")
+                            .join(",");
+
+                        conditions.push(
+                            `${key} ${operator} (${placeholders})`
+                        );
+                        values.push(...operatorValue);
+                    } else {
+                        conditions.push(`${key} ${operator} ?`);
+                        values.push(operatorValue);
+                    }
+                }
+
+                continue;
+            }
+        }
+
+        conditions.push(`${key} = ?`);
+        values.push(value);
+    }
+
+    return conditions.join(" AND ");
+}
+
 function buildQueryParts(options) {
     const parts = [];
 
+    const values = [];
+
     if (options.where) {
-        if (typeof options.where === 'string') {
-            if (options.where.trim().toUpperCase().startsWith("WHERE ")) throw new Error("Raw string WHERE clauses are not allowed. Use a structured filter instead.");
-            else parts.push(`WHERE ${options.where}`);
-        } else {
-            parts.push(`WHERE ${generateCondition(formatObject(options.where))}`);
-        }
+        const whereClause = buildWhere(options.where, values);
+
+        if (whereClause)
+            sql += ` WHERE ${whereClause}`;
     }
 
     if (options.groupBy) {
