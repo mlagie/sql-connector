@@ -11,7 +11,19 @@ export type SqlType =
     | "Float"
     | "Text"
     | "DateTime"
-    | "Timestamp";
+    | "Timestamp"
+    | "CurrentTimestamp";
+
+export interface SqlTypeMap {
+    String: string;
+    Number: string;
+    Date: string;
+    CurrentTimestamp: string; // Ajout de la propriété demandée
+    [key: string]: any;       // Permet d'accueillir d'autres types SQL généraux
+}
+
+export const sqlTypeMap: SqlTypeMap;
+
 export type SqlTypeConstructor =
     | StringConstructor
     | NumberConstructor
@@ -70,45 +82,45 @@ export interface WhereClause {
     OR?: WhereClause[];
 
     [key: string]:
-        | any
-        | WhereClause[]
-        | WhereOperatorObject
-        | undefined;
+    | any
+    | WhereClause[]
+    | WhereOperatorObject
+    | undefined;
 }
 
 type NormalizeSqlType<T> =
     T extends StringConstructor
-            ? "String"
-            : T extends NumberConstructor
-                ? "Number"
-                : T extends BooleanConstructor
-                    ? "Boolean"
-                    : T extends DateConstructor
-                        ? "Date"
-                        : T extends ObjectConstructor
-                            ? "Object"
-                            : T extends ArrayConstructor
-                                ? "Array"
-                                : T extends SqlType
-                                    ? T
-                                    : T extends { name: SqlType }
-                                        ? T["name"]
-                                        : never;
+    ? "String"
+    : T extends NumberConstructor
+    ? "Number"
+    : T extends BooleanConstructor
+    ? "Boolean"
+    : T extends DateConstructor
+    ? "Date"
+    : T extends ObjectConstructor
+    ? "Object"
+    : T extends ArrayConstructor
+    ? "Array"
+    : T extends SqlType
+    ? T
+    : T extends { name: SqlType }
+    ? T["name"]
+    : never;
 
 type InferSqlType<T> =
     NormalizeSqlType<T> extends "String" | "Text"
-        ? string
-        : NormalizeSqlType<T> extends "Number" | "Float"
-            ? number
-            : NormalizeSqlType<T> extends "Boolean"
-                ? boolean
-                : NormalizeSqlType<T> extends "Date" | "DateTime" | "Timestamp" | "Now"
-                    ? Date
-                    : NormalizeSqlType<T> extends "Object"
-                        ? Record<string, unknown>
-                        : NormalizeSqlType<T> extends "Array"
-                            ? unknown[]
-                            : unknown;
+    ? string
+    : NormalizeSqlType<T> extends "Number" | "Float"
+    ? number
+    : NormalizeSqlType<T> extends "Boolean"
+    ? boolean
+    : NormalizeSqlType<T> extends "Date" | "DateTime" | "Timestamp" | "Now"
+    ? Date
+    : NormalizeSqlType<T> extends "Object"
+    ? Record<string, unknown>
+    : NormalizeSqlType<T> extends "Array"
+    ? unknown[]
+    : unknown;
 
 type HasKey<T, K extends PropertyKey> = K extends keyof T ? true : false;
 
@@ -117,21 +129,21 @@ type InferFieldValue<TField> =
 
 type InferFieldNullable<TField> =
     TField extends { required: true }
-        ? false
-        : TField extends { primary_key: true }
-            ? false
-            : TField extends { auto_increment: true }
-                ? false
-                : TField extends { default: null }
-                    ? true
-                : HasKey<TField, "default"> extends true
-                    ? false
-                    : true;
+    ? false
+    : TField extends { primary_key: true }
+    ? false
+    : TField extends { auto_increment: true }
+    ? false
+    : TField extends { default: null }
+    ? true
+    : HasKey<TField, "default"> extends true
+    ? false
+    : true;
 
 export type InferSchema<TSchema extends SchemaDict> = {
     [K in keyof TSchema]: InferFieldNullable<TSchema[K]> extends true
-        ? InferFieldValue<TSchema[K]> | null
-        : InferFieldValue<TSchema[K]>;
+    ? InferFieldValue<TSchema[K]> | null
+    : InferFieldValue<TSchema[K]>;
 };
 
 export type SchemaLike<TSchema extends SchemaDict = SchemaDict> =

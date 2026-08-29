@@ -52,29 +52,6 @@ function formatDefaultSql(defaultValue, fieldType) {
     return `DEFAULT "${String(defaultValue).replace(/"/g, '\\"')}"`;
 }
 
-const reservedKeywords = ['ADD', 'ALL', 'ALTER', 'AND', 'AS', 'ASC', 'BETWEEN', 'BY', 'CASE', 'CHECK', 'COLUMN', 'CONSTRAINT', 'CREATE', 'CURRENT_DATE', 'CURRENT_TIME', 'CURRENT_TIMESTAMP', 'DEFAULT', 'DELETE', 'DESC', 'DISTINCT', 'DROP', 'ELSE', 'END', 'ESCAPE', 'EXCEPT', 'EXISTS', 'FOR', 'FOREIGN', 'FROM', 'FULL', 'GROUP', 'HAVING', 'IN', 'INNER', 'INSERT', 'INTERSECT', 'INTO', 'IS', 'JOIN', 'LEFT', 'LIKE', 'LIMIT', 'NOT', 'NULL', 'ON', 'OR', 'ORDER', 'OUTER', 'PRIMARY', 'REFERENCES', 'RIGHT', 'SELECT', 'SET', 'SOME', 'TABLE', 'THEN', 'UNION', 'UNIQUE', 'UPDATE', 'VALUES', 'WHEN', 'WHERE'];
-
-/**
- * Checks if a table name is a reserved keyword.
- * 
- * @param {string} tableName The name of the table to be checked.
- * @returns {boolean} `true` if the table name is a reserved keyword, otherwise `false`.
- * 
- * @example
- * const isReserved = ifReservedKeywords('SELECT');
- * console.log(isReserved); // true
- *
- * @example
- * const isReserved = ifReservedKeywords('myTable');
- * console.log(isReserved); // false
- */
-function ifReservedKeywords(tableName) {
-    if (reservedKeywords.includes(tableName.toUpperCase())) {
-        return true;
-    }
-    return false;
-}
-
 function getColumnDefinition(fieldName, field) {
     if (field.primary_key && field.unique) {
         throw new Error(`Field '${fieldName}' cannot be both PRIMARY KEY and UNIQUE.`);
@@ -207,10 +184,6 @@ class Model {
 
             return `${fieldName} ${type == "VARCHAR" ? `${type}(${lengthDefault})` : type}`;
         });
-        if (ifReservedKeywords(this.name)) {
-            error("Error: Invalid table name. Please choose a different name that is not a reserved keyword in SQL_request");
-            return;
-        }
         return `CREATE TABLE IF NOT EXISTS ${escapeIdentifier(this.name)} (${columns.join(', ')}${foreignKey.length > 0 ? ", " + foreignKey.join(', ') : ""}) ENGINE=InnoDB`;
     }
 
