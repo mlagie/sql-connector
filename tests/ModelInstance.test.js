@@ -2,6 +2,8 @@ const { ModelInstance } = require("../src/models/ModelInstance");
 // 1. Importez le vrai gestionnaire de connexion de votre ORM
 const connexionManager = require("../src/db/connexion");
 const util = require("util");
+const { Schema } = require("../src/models/Schema");
+const { Model } = require("../src/models/Model");
 // 2. Définissez votre structure de mock locale
 const mockExecute = jest.fn();
 const mockPool = {
@@ -23,6 +25,12 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         // 3. 🔥 LE FIX MAGIQUE : On force l'ORM à utiliser le mock localement
         // Cela écrase la connexion réelle par votre pool simulé sans dépendre du comportement de jest.mock()
         connexionManager.setConnexion(mockPool);
+        const userSchema = new Schema({
+            email: { type: String },
+            username: { type: String },
+            uuid: { type: String }
+        });
+        testModel = new Model('users', userSchema);
     });
 
     beforeEach(() => {
@@ -332,4 +340,5 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         // 5. On nettoie le spy pour ne pas impacter les autres tests
         spy.mockRestore();
     });
+
 });

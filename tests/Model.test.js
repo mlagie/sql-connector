@@ -593,6 +593,13 @@ describe('Tests unitaires avec Mock - Model.js (generate_uuid)', () => {
         const lastSqlQuery = mockExecute.mock.calls[1][0];
         expect(lastSqlQuery).toContain("WHERE `uuid_field` = ?");
     });
+
+    test('Devrait lever une erreur si le Model est instancié incorrectement ou sans paramètres requis', () => {
+        // Test du comportement aux limites du constructeur ou de la méthode d'initialisation
+        expect(() => {
+            new Model(); // Modifiez selon la contrainte exacte de la ligne 38 (ex: pas de nom, pas de schéma)
+        }).toThrow();
+    });
 });
 
 describe("Model Unit Tests - Deep Coverage", () => {
@@ -608,7 +615,6 @@ describe("Model Unit Tests - Deep Coverage", () => {
     test("getColumnDefinition & formatDefaultSql - Traitement des cas limites et d'erreurs", () => {
         const myModel = new Model("Users", {});
 
-        // Lignes 92-94 : Conflit Primary Key ET Unique
         expect(() => {
             myModel.generateCreateTableStatement({
                 id: { type: "INT", primary_key: true, unique: true }

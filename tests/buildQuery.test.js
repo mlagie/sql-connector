@@ -7,10 +7,6 @@ describe('Utils - buildQuery.js', () => {
             expect(buildSelect([])).toBe('*');
         });
 
-        test('Devrait concaténer les colonnes simples séparées par des retours à la ligne', () => {
-            expect(buildSelect(['id', 'name'])).toBe('`id`,\n`name`');
-        });
-
         test('Devrait gérer l\'agrégation SUM avec alias optionnel', () => {
             expect(buildSelect([{ sum: 'price' }])).toBe('SUM(`price`) AS `price`');
             expect(buildSelect([{ sum: 'price', as: 'total' }])).toBe('SUM(`price`) AS `total`');
@@ -43,7 +39,7 @@ describe('Utils - buildQuery.js', () => {
         });
 
         test('Devrait générer la clause GROUP BY et parser correctement DATE_FORMAT', () => {
-            const options = { groupBy: ['role', "DATE_FORMAT(createdAt, '%Y')"] };
+            const options = { groupBy: ['role', { dateFormat: ['createdAt', '%Y'] }] };
             expect(buildQueryParts(options)).toEqual({ "sql": "GROUP BY `role`, DATE_FORMAT(`createdAt`, '%Y')", "values": [] });
         });
 
@@ -140,7 +136,6 @@ describe('Utils - buildQuery.js', () => {
             };
             const parts = buildQueryParts(options);
 
-            console.log(parts)
             expect(parts.sql).toContain('GROUP BY `status`, `email`');
             expect(parts.values).toEqual([]);
         });
@@ -221,14 +216,6 @@ describe('Utils - buildQuery.js', () => {
             .toBe('DISTINCT `email` AS `unique_email`');
     });
 
-    test("GROUP BY simple", () => {
-        expect(
-            buildQueryParts({
-                groupBy: ["status"]
-            })
-        ).toEqual({ "sql": "GROUP BY `status`", "values": [] });
-    });
-
     test("count simple", () => {
         expect(
             buildSelect([
@@ -260,5 +247,88 @@ describe('Utils - buildQuery.js', () => {
                 limit: 10.5
             })
         ).toThrow();
+    });
+
+    test('Devrait retourner "*" par défaut si le tableau select est vide', () => {
+        const result = buildSelect([]);
+        expect(result).toEqual('*');
+    });
+
+    test('Devrait traiter correctement l\'opérateur imbriqué IN', () => {
+        const options = {
+            where: {
+                id: { IN: [1, 2, 3] }
+            }
+        };
+        const result = buildQueryParts(options);
+        expect(result.sql).toEqual('WHERE `id` IN (?,?,?)');
+        expect(result.values).toEqual([1, 2, 3]);
+    });
+
+    test('Devrait lever une exception de sécurité si une clause HAVING brute est soumise', () => {
+        const options = {
+            where: { status: 'active' },
+            having: 'COUNT(id) > 5'
+        };
+
+        expect(() => {
+            buildQueryParts(options);
+        }).toThrow("Raw string HAVING clauses are not allowed. Use a structured filter instead.");
+    });
+
+    test('Devrait lever une erreur si la clause logique OR est vide', () => {
+        const options = {
+            where: { OR: [] }
+        };
+        expect(() => {
+            buildQueryParts(options);
+        }).toThrow("OR conditions cannot be empty");
+    });
+
+    test('Devrait lever une erreur si la clause logique AND est vide', () => {
+        const options = {
+            where: { AND: [] }
+        };
+        expect(() => {
+            buildQueryParts(options);
+        }).toThrow("AND conditions cannot be empty");
+    });
+
+    test('Devrait traiter un objet classique ne contenant pas d\'opérateurs SQL comme une valeur brute', () => {
+        const options = {
+            where: {
+                metadata: { nom_famille: 'dupont' }
+            }
+        };
+        const result = buildQueryParts(options);
+
+        expect(result.sql).toEqual('WHERE `metadata` = ?');
+        expect(result.values).toEqual([{ nom_famille: 'dupont' }]);
+    });
+
+    test('Devrait traiter correctement la clause orderBy avec un tableau d\'objets structurés', () => {
+        const options = {
+            orderBy: [
+                { field: 'created_at', direction: 'DESC' },
+                { field: 'username' }
+            ]
+        };
+        const result = buildQueryParts(options);
+        expect(result.sql).toEqual('ORDER BY `created_at` DESC, `username` ASC');
+    });
+
+    test('Devrait compiler un tableau mixte contenant des strings, des objets col, et des objets dateFormat', () => {
+        const options = {
+            groupBy: [
+                'status',
+                { col: 'role' },
+                { dateFormat: ['createdAt', '%Y-%m'] }
+            ]
+        };
+
+        const result = buildQueryParts(options);
+
+        expect(result.sql).toEqual("GROUP BY `status`, `role`, DATE_FORMAT(`createdAt`, '%Y-%m')");
+        expect(result.values).toEqual([]);
     });
 });

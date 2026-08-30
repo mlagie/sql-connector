@@ -92,6 +92,8 @@ class Model {
      * @param {Object} schema The schema of the database table.
      */
     constructor(name, schema) {
+        if (!name || typeof name !== "string") throw new Error("Model name must be a non-empty string.");
+        if (!schema || typeof schema !== "object") throw new Error("Model schema must be a non-empty object.");
         this.name = name;
         this.schema = schema;
 

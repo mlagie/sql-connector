@@ -21,7 +21,7 @@
     "test:publish": "npm publish --dry-run",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:coverage": "rm -r coverage ; node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
-    "coverage:report": "node scripts/coverage-report.js",
+    "coverage:report": "./scripts/coverage-report.sh",
     "security": "npx eslint . --max-warnings 0 --ignore-pattern './tests/*'"
   },
   "repository": {

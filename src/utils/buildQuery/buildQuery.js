@@ -1,26 +1,21 @@
-const { logs } = require("@mlagie/logger");
-const formatObject = require("../formatObject");
-const generateCondition = require("../generateCondition");
 const { escapeIdentifier, escapeOrderDirection, escapeValue } = require("../sql");
 const count = require("./count");
 
 function buildGroupByItem(group) {
-    if (typeof group !== 'string') {
-        throw new Error("Group by items must be strings");
+    if (typeof group !== 'string' && typeof group !== 'object') {
+        throw new Error("Group by items must be strings or objects");
     }
-
-    const trimmedGroup = group.trim();
-
-    if (/^DATE_FORMAT\(/i.test(trimmedGroup)) {
-        const match = trimmedGroup.match(/^DATE_FORMAT\(([^,]+),\s*('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")\)$/i);
-        if (match) {
-            const column = match[1].trim();
-            const format = match[2].slice(1, -1).replace(/\\'/g, "'").replace(/\\"/g, '"');
-            return `DATE_FORMAT(${escapeIdentifier(column)}, ${escapeValue(format)})`;
+    if (typeof group === 'object') {
+        if (group.dateFormat) {
+            const [col, format] = group.dateFormat;
+            return `DATE_FORMAT(${escapeIdentifier(col)}, ${escapeValue(format)})`;
+        }
+        if (group.col) {
+            return escapeIdentifier(group.col);
         }
     }
 
-    return escapeIdentifier(trimmedGroup);
+    return escapeIdentifier(group.trim());
 }
 
 function buildField(field) {
@@ -65,6 +60,9 @@ function buildWhere(where, values = []) {
 
     for (const [key, value] of Object.entries(where)) {
         if (key === "OR") {
+            if (value.length === 0) {
+                throw new Error("OR conditions cannot be empty");
+            }
             const clauses = value
                 .map((item) => buildWhere(item, values))
                 .filter(Boolean);
@@ -77,6 +75,9 @@ function buildWhere(where, values = []) {
         }
 
         if (key === "AND") {
+            if (value.length === 0) {
+                throw new Error("AND conditions cannot be empty");
+            }
             const clauses = value
                 .map((item) => buildWhere(item, values))
                 .filter(Boolean);
