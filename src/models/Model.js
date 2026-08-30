@@ -265,10 +265,11 @@ class Model {
             joinClause = ` INNER JOIN ${escapeIdentifier(join.table)} ON ${join.on}`;
         }
 
-        const query = `SELECT ${buildSelect(select)} FROM ${escapeIdentifier(this.name)}${joinClause} ${buildQueryParts(options)}`;
+        const { sql: whereClause, values } = buildQueryParts(options);
+        const query = `SELECT ${buildSelect(select)} FROM ${escapeIdentifier(this.name)}${joinClause} ${whereClause}`;
 
         try {
-            const result = await getConnexion().promise().execute(query);
+            const result = await getConnexion().promise().execute(query, values);
             const rows = result && Array.isArray(result) ? result[0] : result;
 
             if (!rows || rows.length === 0) return [];

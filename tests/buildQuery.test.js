@@ -15,7 +15,6 @@ describe('Utils - buildQuery.js', () => {
             expect(buildSelect([{ sum: 'price' }])).toBe('SUM(`price`) AS `price`');
             expect(buildSelect([{ sum: 'price', as: 'total' }])).toBe('SUM(`price`) AS `total`');
         });
-
         test('Devrait gérer DATE_FORMAT et appliquer l\'échappement sur la colonne', () => {
             const select = [{ dateFormat: ['createdAt', '%Y-%m'], as: 'month' }];
             expect(buildSelect(select)).toBe("DATE_FORMAT(`createdAt`, '%Y-%m') AS `month`");
@@ -32,7 +31,7 @@ describe('Utils - buildQuery.js', () => {
             const options = { where: { status: 'active', role: 'admin' } };
 
             // L'objet est nettoyé et les colonnes sont échappées avec des backticks
-            expect(buildQueryParts(options)).toEqual("WHERE `status` = 'active' AND `role` = 'admin'");
+            expect(buildQueryParts(options)).toEqual({"sql": "WHERE `status` = ? AND `role` = ?", "values": ["active", "admin"]});
         });
 
         test('Devrait lever une erreur si la clause WHERE est passée sous forme de chaîne brute (Protection Injection SQL)', () => {
@@ -42,14 +41,10 @@ describe('Utils - buildQuery.js', () => {
                 'Raw string WHERE clauses are not allowed. Use a structured filter instead.'
             );
         });
-        test('Devrait traiter la clause WHERE (chaîne brute ou objet)', () => {
-            expect(buildQueryParts({ where: 'id = 1' })).toEqual('WHERE id = 1');
-            expect(buildQueryParts({ where: { status: 'ok' } })).toEqual("WHERE `status` = 'ok'");
-        });
 
         test('Devrait générer la clause GROUP BY et parser correctement DATE_FORMAT', () => {
             const options = { groupBy: ['role', "DATE_FORMAT(createdAt, '%Y')"] };
-            expect(buildQueryParts(options)).toEqual("GROUP BY `role`, DATE_FORMAT(`createdAt`, '%Y')");
+            expect(buildQueryParts(options)).toEqual({"sql": "GROUP BY `role`, DATE_FORMAT(`createdAt`, '%Y')", "values": []});
         });
 
         test('Devrait lever une erreur si la clause HAVING est passée sous forme de chaîne brute', () => {
@@ -62,12 +57,12 @@ describe('Utils - buildQuery.js', () => {
             const options = {
                 orderBy: ['name', { field: 'id', direction: 'DESC' }]
             };
-            expect(buildQueryParts(options)).toEqual('ORDER BY `name`, `id` DESC');
+            expect(buildQueryParts(options)).toEqual({"sql": "ORDER BY `name`, `id` DESC", "values": []});
         });
 
         test('Devrait accepter la clause LIMIT si elle est un entier valide', () => {
-            expect(buildQueryParts({ limit: 10 })).toEqual("LIMIT 10");
-            expect(buildQueryParts({ limit: 0 })).toEqual("");
+            expect(buildQueryParts({ limit: 10 })).toEqual({"sql": "LIMIT ?", "values": [10]});
+            expect(buildQueryParts({ limit: 0 })).toEqual({"sql": "", "values": []});
         });
 
         test('Devrait lever une erreur si la clause LIMIT est invalide', () => {
@@ -95,7 +90,9 @@ describe('Utils - buildQuery.js', () => {
             };
             const parts = buildQueryParts(options);
 
-            expect(parts).toContain('GROUP BY `status`, `email`');
+            console.log(parts)
+            expect(parts.sql).toContain('GROUP BY `status`, `email`');
+            expect(parts.values).toEqual([]);
         });
 
         test("COUNT DISTINCT sur plusieurs colonnes", () => {
@@ -179,7 +176,7 @@ describe('Utils - buildQuery.js', () => {
             buildQueryParts({
                 groupBy: ["status"]
             })
-        ).toBe("GROUP BY `status`");
+        ).toEqual({"sql": "GROUP BY `status`", "values": []});
     });
 
     test("count simple", () => {

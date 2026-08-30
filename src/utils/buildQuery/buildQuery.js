@@ -1,3 +1,4 @@
+const { logs } = require("@mlagie/logger");
 const formatObject = require("../formatObject");
 const generateCondition = require("../generateCondition");
 const { escapeIdentifier, escapeOrderDirection, escapeValue } = require("../sql");
@@ -102,11 +103,11 @@ function buildWhere(where, values = []) {
                             .join(",");
 
                         conditions.push(
-                            `${key} ${operator} (${placeholders})`
+                            `${escapeIdentifier(key)} ${operator} (${placeholders})`
                         );
                         values.push(...operatorValue);
                     } else {
-                        conditions.push(`${key} ${operator} ?`);
+                        conditions.push(`${escapeIdentifier(key)} ${operator} ?`);
                         values.push(operatorValue);
                     }
                 }
@@ -115,19 +116,26 @@ function buildWhere(where, values = []) {
             }
         }
 
-        conditions.push(`${key} = ?`);
+        conditions.push(`${escapeIdentifier(key)} = ?`);
         values.push(value);
     }
 
     return conditions.join(" AND ");
 }
 
+/**
+ * Construit les parties de la requête et extrait les valeurs sécurisées
+ * @param {Object} options Options de filtrage, tri et pagination
+ * @returns {Object} Un objet contenant la chaîne SQL générée et le tableau des valeurs { sql, values }
+ */
 function buildQueryParts(options) {
     const parts = [];
-
-    const values = [];
+    const values = []; // Tableau accumulateur pour les paramètres mysql2
 
     if (options.where) {
+        if (typeof options.where !== 'object' || Array.isArray(options.where)) {
+            throw new Error("Raw string WHERE clauses are not allowed. Use a structured filter instead.");
+        }
         parts.push(`WHERE ${buildWhere(options.where, values)}`);
     }
 
@@ -152,10 +160,17 @@ function buildQueryParts(options) {
         if (!Number.isInteger(options.limit) || options.limit < 0) {
             throw new Error("Invalid LIMIT value");
         }
-        parts.push(`LIMIT ${options.limit}`);
+        
+        // Sécurisation stricte du LIMIT en l'ajoutant aux requêtes préparées
+        parts.push(`LIMIT ?`);
+        values.push(options.limit);
     }
 
-    return parts.join('\n\n');
+    // On retourne l'ensemble structuré requis par mysql2 .execute()
+    return {
+        sql: parts.join('\n\n'),
+        values: values
+    };
 }
 
-module.exports = { buildQueryParts, buildSelect }
+module.exports = { buildQueryParts, buildSelect };

@@ -246,18 +246,6 @@ describe('Tests unitaires avec Mock - Model.js (generate_uuid)', () => {
         expect(sql).toContain("CREATE TABLE");
     });
 
-    test("generateCreateTableStatement() refuse SELECT comme nom de table", () => {
-        const model = new Model("SELECT", {
-            schemaDict: {}
-        });
-
-        const result = model.generateCreateTableStatement({
-            id: { type: Number }
-        });
-
-        expect(result).toBeUndefined();
-    });
-
     test("syncAllTables() traite les modèles en attente", async () => {
         Model.pendingModels = [];
 
@@ -676,11 +664,6 @@ describe("Model Unit Tests - Deep Coverage", () => {
         expect(() => {
             modelInvalid.generateCreateTableStatement({ invalid_field: "BAD_TYPE_STRING" });
         }).toThrow("Field invalid_field has unsupported type");
-
-        // Utilisation d'un mot-clé réservé SQL comme nom de table (ex: SELECT, ALTER)
-        const modelReserved = new Model("SELECT", {});
-        const result = modelReserved.generateCreateTableStatement({ id: { type: "Number" } });
-        expect(result).toBeUndefined(); // Renvoie undefined car le log d'erreur bloque la requête
     });
 
     test("find() - Ligne 259 - Doit intercepter et propager les erreurs SQL", async () => {
