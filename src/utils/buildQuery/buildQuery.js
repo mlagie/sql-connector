@@ -128,10 +128,7 @@ function buildQueryParts(options) {
     const values = [];
 
     if (options.where) {
-        const whereClause = buildWhere(options.where, values);
-
-        if (whereClause)
-            sql += ` WHERE ${whereClause}`;
+        parts.push(`WHERE ${buildWhere(options.where, values)}`);
     }
 
     if (options.groupBy) {
