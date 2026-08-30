@@ -31,7 +31,7 @@ describe('Utils - buildQuery.js', () => {
             const options = { where: { status: 'active', role: 'admin' } };
 
             // L'objet est nettoyé et les colonnes sont échappées avec des backticks
-            expect(buildQueryParts(options)).toEqual({"sql": "WHERE `status` = ? AND `role` = ?", "values": ["active", "admin"]});
+            expect(buildQueryParts(options)).toEqual({ "sql": "WHERE `status` = ? AND `role` = ?", "values": ["active", "admin"] });
         });
 
         test('Devrait lever une erreur si la clause WHERE est passée sous forme de chaîne brute (Protection Injection SQL)', () => {
@@ -44,7 +44,7 @@ describe('Utils - buildQuery.js', () => {
 
         test('Devrait générer la clause GROUP BY et parser correctement DATE_FORMAT', () => {
             const options = { groupBy: ['role', "DATE_FORMAT(createdAt, '%Y')"] };
-            expect(buildQueryParts(options)).toEqual({"sql": "GROUP BY `role`, DATE_FORMAT(`createdAt`, '%Y')", "values": []});
+            expect(buildQueryParts(options)).toEqual({ "sql": "GROUP BY `role`, DATE_FORMAT(`createdAt`, '%Y')", "values": [] });
         });
 
         test('Devrait lever une erreur si la clause HAVING est passée sous forme de chaîne brute', () => {
@@ -57,12 +57,12 @@ describe('Utils - buildQuery.js', () => {
             const options = {
                 orderBy: ['name', { field: 'id', direction: 'DESC' }]
             };
-            expect(buildQueryParts(options)).toEqual({"sql": "ORDER BY `name`, `id` DESC", "values": []});
+            expect(buildQueryParts(options)).toEqual({ "sql": "ORDER BY `name`, `id` DESC", "values": [] });
         });
 
         test('Devrait accepter la clause LIMIT si elle est un entier valide', () => {
-            expect(buildQueryParts({ limit: 10 })).toEqual({"sql": "LIMIT ?", "values": [10]});
-            expect(buildQueryParts({ limit: 0 })).toEqual({"sql": "", "values": []});
+            expect(buildQueryParts({ limit: 10 })).toEqual({ "sql": "LIMIT ?", "values": [10] });
+            expect(buildQueryParts({ limit: 0 })).toEqual({ "sql": "", "values": [] });
         });
 
         test('Devrait lever une erreur si la clause LIMIT est invalide', () => {
@@ -70,6 +70,56 @@ describe('Utils - buildQuery.js', () => {
             expect(() => buildQueryParts({ limit: 10.5 })).toThrow('Invalid LIMIT value');
             expect(() => buildQueryParts({ limit: 'abc' })).toThrow('Invalid LIMIT value');
         });
+
+        test('Devrait traiter correctement la clause logique OR imbriquée', () => {
+            const options = {
+                where: {
+                    OR: [
+                        { status: 'inactive' },
+                        { role: 'guest' }
+                    ]
+                }
+            };
+            const result = buildQueryParts(options);
+            expect(result.sql).toEqual("WHERE (`status` = ? OR `role` = ?)");
+            expect(result.values).toEqual(['inactive', 'guest']);
+        });
+
+        test('Devrait traiter correctement la clause logique AND imbriquée', () => {
+            const options = {
+                where: {
+                    AND: [
+                        { status: 'active' },
+                        { is_admin: true }
+                    ]
+                }
+            };
+            const result = buildQueryParts(options);
+            expect(result.sql).toEqual("WHERE (`status` = ? AND `is_admin` = ?)");
+            expect(result.values).toEqual(['active', true]);
+        });
+
+        test('Devrait traiter les opérateurs de comparaison (LIKE, NOT IN, >=, !=)', () => {
+            const options = {
+                where: {
+                    email: { LIKE: '%@gmail.com' },
+                    role: { 'NOT IN': ['admin', 'moderator'] },
+                    age: { '>=': 18 },
+                    status: { '!=': 'deleted' }
+                }
+            };
+            const result = buildQueryParts(options);
+
+            expect(result.sql).toContain("`email` LIKE ?");
+            expect(result.sql).toContain("`role` NOT IN (?,?)");
+            expect(result.sql).toContain("`age` >= ?");
+            expect(result.sql).toContain("`status` != ?");
+
+            expect(result.values).toContain('%@gmail.com');
+            expect(result.values).toContain('admin');
+            expect(result.values).toContain(18);
+        });
+
     });
     describe('buildQuery - Advanced Fields & Aggregations', () => {
 
@@ -176,7 +226,7 @@ describe('Utils - buildQuery.js', () => {
             buildQueryParts({
                 groupBy: ["status"]
             })
-        ).toEqual({"sql": "GROUP BY `status`", "values": []});
+        ).toEqual({ "sql": "GROUP BY `status`", "values": [] });
     });
 
     test("count simple", () => {
