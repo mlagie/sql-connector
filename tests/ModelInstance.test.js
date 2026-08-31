@@ -4,6 +4,7 @@ const connexionManager = require("../src/db/connexion");
 const util = require("util");
 const { Schema } = require("../src/models/Schema");
 const { Model } = require("../src/models/Model");
+const { logs } = require("@mlagie/logger");
 // 2. Définissez votre structure de mock locale
 const mockExecute = jest.fn();
 const mockPool = {
@@ -143,8 +144,8 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         const affected = await instance.updateOne({ name: "pipeline-updated" });
         expect(affected).toBe(1);
 
-        const sqlGenerated = mockExecute.mock.calls[0][0];
-        expect(sqlGenerated).toContain("UPDATE ProjectPipeline SET `name` = 'pipeline-updated' WHERE `id` = 77");
+        const sqlGenerated = mockExecute.mock.calls[0];
+        expect(sqlGenerated).toEqual(["UPDATE `ProjectPipeline` SET `name` = ? WHERE `id` = ?", ["pipeline-updated", 77]]);
     });
 
     // === COUVRE LIGNES 120-124 (Bloc catch de repli de updateOne) ===
@@ -164,9 +165,9 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         const affected = await instance.updateOne({ status: "patched" });
         expect(affected).toBe(1);
 
-        const sqlGenerated = mockExecute.mock.calls[0][0];
+        const sqlGenerated = mockExecute.mock.calls[0];
         // On valide que le traitement s'est terminé avec succès
-        expect(sqlGenerated).toContain("UPDATE ProjectPipeline SET `status` = 'patched' WHERE `id` = 1 AND `name` = 'pipeline-fallback-test'");
+        expect(sqlGenerated).toEqual(["UPDATE `ProjectPipeline` SET `status` = ? WHERE `id` = ? AND `name` = ?", ["patched", 1, "pipeline-fallback-test"]]);
     });
 
     // === COUVRE LIGNE 138 (delete avec affectedRows > 0) ===
@@ -334,8 +335,8 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         expect(affected).toBe(1);
         expect(mockExecute).toHaveBeenCalled();
 
-        const sqlGenerated = mockExecute.mock.calls[0][0];
-        expect(sqlGenerated).toContain("UPDATE ProjectPipeline SET `status` = 'patched' WHERE `id` = 10 AND `status` = 'active'");
+        const sqlGenerated = mockExecute.mock.calls[0];
+        expect(sqlGenerated).toEqual(["UPDATE `ProjectPipeline` SET `status` = ? WHERE `id` = ? AND `status` = ?", ["patched", 10, "active"]]);
 
         // 5. On nettoie le spy pour ne pas impacter les autres tests
         spy.mockRestore();

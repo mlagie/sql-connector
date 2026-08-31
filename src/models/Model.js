@@ -1,8 +1,6 @@
 const { logs, error } = require("@mlagie/logger");
 const { sqlTypeMap } = require("../utils/sqlTypeMap");
 const { getConnexion } = require("../db/connexion");
-const generateCondition = require("../utils/generateCondition");
-const formatObject = require("../utils/formatObject");
 const { ModelInstance } = require("./ModelInstance");
 const { buildSelect, buildQueryParts } = require("../utils/buildQuery/buildQuery");
 const { getSafe, setSafe } = require("../utils/security/safe");
@@ -290,7 +288,9 @@ class Model {
      */
     async count(filter) {
         try {
-            const rows = await getConnexion().promise().execute(`SELECT COUNT(*) as count FROM ${escapeIdentifier(this.name)} ${filter != undefined ? `WHERE ${generateCondition(formatObject(filter))}` : ""}`);
+            const { sql: whereClause, values } = buildQueryParts(filter);
+
+            const rows = await getConnexion().promise().execute(`SELECT COUNT(*) as count FROM ${escapeIdentifier(this.name)} ${whereClause}`, values);
             const resultRows = rows && Array.isArray(rows) ? rows[0] : [];
 
             if (!resultRows || resultRows.length === 0) return 0;
@@ -334,9 +334,11 @@ class Model {
      * @throws {Error} Throws an error if the SQL query fails.
      */
     async delete(filter) {
-        const sql_request = `DELETE FROM ${escapeIdentifier(this.name)} WHERE ${generateCondition(formatObject(filter))}`;
+        const { sql: whereClause, values } = buildQueryParts(filter);
+
+        const sql_request = `DELETE FROM ${escapeIdentifier(this.name)} WHERE ${whereClause}`;
         return new Promise((resolve, reject) => {
-            getConnexion().promise().execute(sql_request).then((rows) => {
+            getConnexion().promise().execute(sql_request, values).then((rows) => {
                 if (rows[0].affectedRows === 0) return resolve(0);
 
                 return resolve(1);

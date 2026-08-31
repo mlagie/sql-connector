@@ -1,8 +1,7 @@
 const { error } = require("@mlagie/logger");
 const { getConnexion } = require("../db/connexion");
-const formatObject = require("../utils/formatObject");
-const generateCondition = require("../utils/generateCondition");
 const { getSafe, setSafe } = require("../utils/security/safe");
+const { buildQueryParts } = require("../utils/buildQuery/buildQuery");
 
 /**
  * Represents an instance of a database model.
@@ -82,12 +81,16 @@ class ModelInstance {
      * @throws {Error} Throws an error if the update fails.
      */
     async updateOne(model) {
-        const setClause = generateCondition(formatObject(model), true);
+        // 1. Paramétrisation sécurisée de la clause SET
+        const setKeys = Object.keys(model);
+        if (setKeys.length === 0) return 0;
 
-        let whereClause;
+        const setClause = setKeys.map(key => `\`${key}\` = ?`).join(', ');
+        const values = Object.values(model); // On accumule les valeurs à modifier
+
+        let targetCriteria;
         try {
             const recordsArray = this.getRecordData();
-
             let rawRec = Array.isArray(recordsArray) ? recordsArray[0] : recordsArray;
 
             if (typeof rawRec === 'string') {
@@ -101,38 +104,54 @@ class ModelInstance {
                 if (pkKeys.length > 0) {
                     const pkObj = {};
                     for (const k of pkKeys) {
-                        if (rec && Object.prototype.hasOwnProperty.call(rec, k)) setSafe(pkObj, k, getSafe(rec, k));
+                        if (rec && Object.prototype.hasOwnProperty.call(rec, k)) {
+                            setSafe(pkObj, k, getSafe(rec, k));
+                        }
                     }
-                    if (Object.keys(pkObj).length > 0) whereClause = generateCondition(formatObject(pkObj), false, this._schema);
+                    if (Object.keys(pkObj).length > 0) targetCriteria = pkObj;
                 }
             }
-            if (!whereClause) whereClause = generateCondition(formatObject(rec), false, this._schema);
+            if (!targetCriteria) targetCriteria = rec;
         } catch {
             const originalFallbackRec = this.getRecordData();
             let fallbackRec = originalFallbackRec;
             if (Array.isArray(fallbackRec)) fallbackRec = fallbackRec[0];
-            if (typeof fallbackRec === 'string') { try { fallbackRec = JSON.parse(fallbackRec); } catch { fallbackRec = originalFallbackRec; } }
-            whereClause = generateCondition(formatObject(fallbackRec), false, this._schema);
+            if (typeof fallbackRec === 'string') {
+                try { fallbackRec = JSON.parse(fallbackRec); } catch { fallbackRec = originalFallbackRec; }
+            }
+            targetCriteria = fallbackRec;
         }
 
-        const sql_request = `UPDATE ${this._name} SET ${setClause} WHERE ${whereClause}`;
-        const [result] = await getConnexion().promise().execute(sql_request).catch((err) => {
+        // 2. Utilisation de la nouvelle fonction buildQueryParts pour générer le WHERE sécurisé
+        // On passe les critères dans la clé 'where' requise par la fonction
+        const { sql: whereClause, values: whereValues } = buildQueryParts({ where: targetCriteria });
+
+        // 3. Fusion ordonnée des valeurs : d'abord les données du SET, puis celles du WHERE
+        values.push(...whereValues);
+
+        // Construction de la requête préparée MySQL finale avec des placeholders "?" partout
+        const sql_request = `UPDATE \`${this._name}\` SET ${setClause} ${whereClause}`;
+
+        try {
+            // Envoi combiné de la structure et du tableau complet de valeurs ordonnées
+            const [result] = await getConnexion().promise().execute(sql_request, values);
+
+            const affected = result && (result.affectedRows !== undefined ? result.affectedRows : 0);
+
+            if (affected > 0) {
+                const record = this.getRecordData();
+                if (Array.isArray(this._data)) {
+                    if (this._data[0] && typeof this._data[0] === 'object') Object.assign(this._data[0], model);
+                } else if (record && typeof record === 'object') {
+                    Object.assign(this._data, model);
+                }
+            }
+
+            return affected;
+        } catch (err) {
             error(`Error executing query updateOne: ${err}`);
             throw err;
-        });
-
-        const affected = result && (result.affectedRows !== undefined ? result.affectedRows : 0);
-
-        if (affected > 0) {
-            const record = this.getRecordData();
-            if (Array.isArray(this._data)) {
-                if (this._data[0] && typeof this._data[0] === 'object') Object.assign(this._data[0], model);
-            } else if (record && typeof record === 'object') {
-                Object.assign(this._data, model);
-            }
         }
-
-        return affected;
     }
 
     /**
@@ -142,9 +161,11 @@ class ModelInstance {
      * @throws {Error} Throws an error if the deletion fails.
      */
     async delete(filter) {
-        const sql_request = `DELETE FROM ${this._name} WHERE ${generateCondition(formatObject(filter))}`;
+        const { sql: whereClause, values } = buildQueryParts(filter);
 
-        const rows = await getConnexion().promise().execute(sql_request).catch((err) => {
+        const sql_request = `DELETE FROM ${this._name} ${whereClause}`;
+
+        const rows = await getConnexion().promise().execute(sql_request, values).catch((err) => {
             error(`Error executing query delete: ${err}`);
             throw err;
         });
@@ -158,8 +179,9 @@ class ModelInstance {
      * @throws {Error} Throws an error if the deletion fails.
      */
     async deleteOne() {
-        const sql_request = `DELETE FROM ${this._name} WHERE ${generateCondition(formatObject(this.getRecordData()))}`;
-        const rows = await getConnexion().promise().execute(sql_request).catch((err) => {
+        const { sql: whereClause, values } = buildQueryParts(this.getRecordData());
+        const sql_request = `DELETE FROM ${this._name} ${whereClause}`;
+        const rows = await getConnexion().promise().execute(sql_request, values).catch((err) => {
             error(`Error executing query deleteOne: ${err}`);
             throw err;
         });

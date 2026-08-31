@@ -156,7 +156,7 @@ Récupère des enregistrements de la table.
 - **Paramètres** `options` *(Object)* – Options de la requête.
 - **Paramètres** `options.select` *(Array<string|SelectAggregation>)* – Champs, agrégations ou transformations à retourner.
 - **Paramètres** `options.where` *(Object / string)* – Conditions de filtrage (objet clé/valeur ou clause brute sous forme de chaîne).
-- **Paramètres** `options.groupBy` *(string[])* – Champs utilisés pour grouper les résultats.
+- **Paramètres** `options.groupBy` *(Array<string|GroupAggregation>)* – Champs, colonnes ou expressions utilisés pour regrouper les résultats.
 - **Paramètres** `options.orderBy` *(Array<string|OrderByOption>)* – Règles de tri.
 - **Paramètres** `options.join` *(JoinOption / JoinOption[])* – Structures de configuration pour les jointures de tables.
 - **Paramètres** `options.limit` *(number)* – Nombre maximal de résultats à retourner.
@@ -176,6 +176,16 @@ Chaque élément du tableau `select` peut être soit une chaîne de caractères 
 | `count` (Array)                 | `string[]`        | Calcule le nombre de combinaisons uniques sur plusieurs colonnes (COUNT DISTINCT).                        | `{ count: ['team', 'source'] }` $\rightarrow$ `COUNT( DISTINCT `\`team\``, `\`source\`` )`          |
 | `count` (Object)                | `Object`          | Agrégation conditionnelle automatisée (`CASE WHEN`). Idéal pour les indicateurs clés (KPIs) et statuts.   | `{ count: { deletedAt: null } }` $\rightarrow$ `COUNT(CASE WHEN `\`deletedAt\`` = NULL THEN 1 END)` |
 | `as`                            | `string`          | Définit un identifiant de sortie personnalisé ou un alias d'agrégation (SQL `AS`).                        | `{ count: 'id', as: 'total' }` $\rightarrow$ `COUNT(`\`id\``) AS `\`total\`                         |
+
+### Options Avancées de `groupBy` (`GroupAggregation`)
+
+L'option `groupBy` accepte un tableau pouvant mélanger des chaînes de caractères simples (noms de colonnes bruts) et des objets de configuration avancés pour un regroupement sécurisé, paramétré et la gestion des alias :
+
+| Propriété dans l'objet `groupBy` | Type              | Description                                                                                                                | Exemple / SQL Généré                                                                  |
+|----------------------------------|-------------------|----------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| `col`                            | `string`          | Cible de manière sécurisée une colonne de table non agrégée grâce à l'isolation structurelle de l'objet.                   | `{ col: 'role' }` → \`role\`                                                          |
+| `dateFormat`                     | `[string, string]`| Regroupe de manière sécurisée par une colonne Date formatée à l'aide d'entrées paramétrées (Format : `[colonne, format]`). | `{ dateFormat: ['created_at', '%Y-%m'] }` → `DATE_FORMAT(` \`created_at\``, '%Y-%m')` |
+| `as`                             | `string`          | Cible directement l'alias défini dans le select pour respecter les contraintes strictes de syntaxe MySQL.                  | `{ col: 'role', as: 'user_role' }` → \`user_role\`                                    |
 
 ---
 
@@ -210,7 +220,7 @@ await User.find({
     { sum: 'error' },
     { sum: 'reload' },
   ],
-  groupBy: ['period'],
+  groupBy: ['period', { dateFormat: ['date_day', '%Y-%m'] }],
   orderBy: [{ field: 'period', direction: 'ASC' }],
   limit: 10
 });
@@ -264,9 +274,7 @@ const ppiStats = await ProjectPipeline.find({
     team: 'GROUP-1'
   }
 });
-
-// Format du tableau de sortie retourné : [{ active: 6, total_success: 42 }]
-```
+  ```
 
 #### 3. Jointures de tables, groupement temporel et tri multi-colonnes
 
@@ -281,13 +289,18 @@ const history = await ProjectPipeline.find({
     { dateFormat: ['MyTable.created_at', '%Y-%m'], as: 'period' },
     { count: 'MyTable.id', as: 'pipelines_count' }
   ],
-  where: "MyTable.deletedAt IS NULL", // Les chaînes de conditions brutes sont autorisées
+  where: {
+    status: 'ACTIVE'
+  },
   join: {
     table: 'Projects',
     on: 'MyTable.project_id = Projects.id',
     type: 'LEFT'
   },
-  groupBy: ['project_name', 'period'],
+  groupBy: [
+    'project_name',
+    { dateFormat: ['ProjectPipelines.created_at', '%Y-%m'] }
+  ],
   orderBy: [
     { field: 'period', direction: 'DESC' },
     { field: 'project_name', direction: 'ASC' }
@@ -389,7 +402,7 @@ const User = require("user");
 const uuid = await User.generate_uuid();
 const my_uuid = await User.generate_uuid("my_uuid");
 
-await User.save{ email: "user@example.com", status: "active", uuid: uuid, my_uuid: my_uuid }
+await User.save({ email: "user@example.com", status: "active", uuid: uuid, my_uuid: my_uuid })
 ```
 
 ## Instances de modèle

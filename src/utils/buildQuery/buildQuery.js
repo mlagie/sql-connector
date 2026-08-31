@@ -2,17 +2,22 @@ const { escapeIdentifier, escapeOrderDirection, escapeValue } = require("../sql"
 const count = require("./count");
 
 function buildGroupByItem(group) {
+    let sql;
     if (typeof group !== 'string' && typeof group !== 'object') {
         throw new Error("Group by items must be strings or objects");
     }
     if (typeof group === 'object') {
         if (group.dateFormat) {
             const [col, format] = group.dateFormat;
-            return `DATE_FORMAT(${escapeIdentifier(col)}, ${escapeValue(format)})`;
+            sql = `DATE_FORMAT(${escapeIdentifier(col)}, ${escapeValue(format)})`;
         }
         if (group.col) {
-            return escapeIdentifier(group.col);
+            sql = escapeIdentifier(group.col);
         }
+        if (group.as) {
+            sql += ` AS ${escapeIdentifier(group.as)}`;
+        }
+        return sql;
     }
 
     return escapeIdentifier(group.trim());
@@ -133,6 +138,9 @@ function buildQueryParts(options) {
     const parts = [];
     const values = []; // Tableau accumulateur pour les paramètres mysql2
 
+    if (!options) {
+        return { sql: '', values: [] };
+    }
     if (options.where) {
         if (typeof options.where !== 'object' || Array.isArray(options.where)) {
             throw new Error("Raw string WHERE clauses are not allowed. Use a structured filter instead.");

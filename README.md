@@ -3,7 +3,7 @@
 ![GitHub package.json version](https://img.shields.io/github/package-json/v/lagie-marin/sql-connector?color=#008000) ![NPM Downloads](https://img.shields.io/npm/d18m/%40mlagie%2Fsql-connector?color=#008000) ![NPM Downloads](https://img.shields.io/npm/dw/%40mlagie%2Fsql-connector?color=#008000) ![GitHub followers](https://img.shields.io/github/followers/lagie-marin?style=plastic&color=color%3D%23008000) ![GitHub repo size](https://img.shields.io/github/repo-size/lagie-marin/sql-connector?color=%green)
  ![GitHub last commit](https://img.shields.io/github/last-commit/lagie-marin/sql-connector)
 
-[Français](./docs/fr/README.md) | English
+[Français](./docs/fr/README_FR.md) | English
 
 sql-connector helps manage MySQL connections, define table schemas, sync tables automatically, and work with database models through a small API.
 
@@ -186,7 +186,7 @@ Retrieves entries from the table.
 - **Parameters** `options` *(Object)* - Query options.
 - **Parameters** `options.select` *(Array<string|SelectAggregation>)* - Fields, aggregations, or transformations to be returned.
 - **Parameters** `options.where` *(Object / string)* - Filtering conditions (key/value object or raw string condition).
-- **Parameters** `options.groupBy` *(string[])* - Fields used to group results.
+- **Parameters** `options.groupBy` *(Array<string|GroupAggregation>)* - Fields, columns, or expressions used to group results.
 - **Parameters** `options.orderBy` *(Array<string|OrderByOption>)* - Sorting rules.
 - **Parameters** `options.join` *(JoinOption / JoinOption[])* - Table join configuration structures.
 - **Parameters** `options.limit` *(number)* - Maximum number of results to return.
@@ -206,6 +206,16 @@ Each element in the `select` array can be either a standard string (raw column n
 | `count` (Array)                 | `string[]`        | Counts unique combinations across multiple columns (COUNT DISTINCT).                                 | `{ count: ['team', 'source'] }` $\rightarrow$ `COUNT( DISTINCT` \`team\``,` \`source\``)`          |
 | `count` (Object)                | `Object`          | Automated conditional aggregation (`CASE WHEN`). Perfect for KPIs and status metrics.                | `{ count: { deletedAt: null } }` $\rightarrow$ `COUNT(CASE WHEN` \`deletedAt\``= NULL THEN 1 END)` |
 | `as`                            | `string`          | Sets a custom output identifier or aggregation alias (SQL `AS`).                                     | `{ count: 'id', as: 'total' }` $\rightarrow$ `COUNT(` \`id\``) AS` \`total\`                       |
+
+### Advanced `groupBy` Options (`GroupAggregation`)
+
+The `groupBy` option accepts an array that can mix standard strings (raw column names) and advanced configuration objects for secure and parameterized grouping:
+
+|    object    | Type               | Description                                                                                       | Example / Generated SQL                                                        |
+|--------------|--------------------|---------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| `col`        | `string`           | Safely targets an unaggregated table column using structural object isolation.                    | { col: 'role' } -> `role`                                                      |
+| `dateFormat` | `[string, string]` | Securely groups by a formatted Date column using parameterized inputs (Format: [column, format]). | { dateFormat: ['created_at', '%Y-%m'] } -> DATE_FORMAT( `created_at`, '%Y-%m') |
+| `as`         | `string`           | Targets the specified select alias directly to comply with strict MySQL group structures.         | `{ col: 'role', as: 'user_role' }` ->\`user_role\`                             |
 
 ---
 
@@ -240,7 +250,7 @@ User.find({
     { sum: 'error' },
     { sum: 'reload' },
   ],
-  groupBy: ['period'],
+  groupBy: ['period', { dateFormat: ['date_day', '%Y-%m'] }],
   orderBy: [{ field: 'period', direction: 'ASC' }],
   limit: 10
 });
@@ -296,7 +306,7 @@ const ppiStats = await MyTable.find({
 });
 ```
 
-#### 3. Table Joins, Time Series Grouping, and Multi-Column Sorting
+#### 3. Table Joins, Mixed-Type Time Series Grouping, and Multi-Column Sorting
 
 An advanced query orchestration combining left table joining, date formatting conversions, and sorting:
 
@@ -309,13 +319,18 @@ const history = await MyTable.find({
     { dateFormat: ['ProjectPipelines.created_at', '%Y-%m'], as: 'period' },
     { count: 'ProjectPipelines.id', as: 'pipelines_count' }
   ],
-  where: "ProjectPipelines.deletedAt IS NULL", // Raw condition strings are permitted
+  where: {
+    status: 'ACTIVE'
+  },
   join: {
     table: 'Projects',
     on: 'ProjectPipelines.project_id = Projects.id',
     type: 'LEFT'
   },
-  groupBy: ['project_name', 'period'],
+  groupBy: [
+    'project_name',
+    { dateFormat: ['ProjectPipelines.created_at', '%Y-%m'] }
+  ],
   orderBy: [
     { field: 'period', direction: 'DESC' },
     { field: 'project_name', direction: 'ASC' }
@@ -414,7 +429,7 @@ const User = require("user");
 const uuid = await User.generate_uuid();
 const my_uuid = await User.generate_uuid("my_uuid");
 
-await User.save{ email: "user@example.com", status: "active", uuid: uuid, my_uuid: my_uuid }
+await User.save({ email: "user@example.com", status: "active", uuid: uuid, my_uuid: my_uuid })
 ```
 
 ## Model instances
