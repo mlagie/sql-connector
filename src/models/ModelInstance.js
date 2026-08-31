@@ -122,20 +122,14 @@ class ModelInstance {
             targetCriteria = fallbackRec;
         }
 
-        // 2. Utilisation de la nouvelle fonction buildQueryParts pour générer le WHERE sécurisé
-        // On passe les critères dans la clé 'where' requise par la fonction
         const { sql: whereClause, values: whereValues } = buildQueryParts({ where: targetCriteria });
 
-        // 3. Fusion ordonnée des valeurs : d'abord les données du SET, puis celles du WHERE
         values.push(...whereValues);
 
-        // Construction de la requête préparée MySQL finale avec des placeholders "?" partout
         const sql_request = `UPDATE \`${this._name}\` SET ${setClause} ${whereClause}`;
 
         try {
-            // Envoi combiné de la structure et du tableau complet de valeurs ordonnées
             const [result] = await getConnexion().promise().execute(sql_request, values);
-
             const affected = result && (result.affectedRows !== undefined ? result.affectedRows : 0);
 
             if (affected > 0) {

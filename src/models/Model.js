@@ -399,7 +399,7 @@ class Model {
             return null;
         } catch (err) {
             error(`Error executing query gen_uuid: ${err}`);
-            return null; // Retourne null en cas de plantage SQL
+            return null;
         }
     }
 }

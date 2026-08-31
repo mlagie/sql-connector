@@ -136,7 +136,7 @@ function buildWhere(where, values = []) {
  */
 function buildQueryParts(options) {
     const parts = [];
-    const values = []; // Tableau accumulateur pour les paramètres mysql2
+    const values = [];
 
     if (!options) {
         return { sql: '', values: [] };
@@ -170,12 +170,10 @@ function buildQueryParts(options) {
             throw new Error("Invalid LIMIT value");
         }
         
-        // Sécurisation stricte du LIMIT en l'ajoutant aux requêtes préparées
         parts.push(`LIMIT ?`);
         values.push(options.limit);
     }
 
-    // On retourne l'ensemble structuré requis par mysql2 .execute()
     return {
         sql: parts.join('\n\n'),
         values: values
