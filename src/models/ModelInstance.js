@@ -26,7 +26,7 @@ class ModelInstance {
                 value: data,
                 writable: true,
                 configurable: true,
-                enumerable: true
+                enumerable: false
             },
             _schema: {
                 value: schema,
