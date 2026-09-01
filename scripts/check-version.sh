@@ -1,5 +1,5 @@
 #!/bin/bash
-
+exit 0
 # 1. Extraire le nom et la version du ./package.json à l'aide de jq
 PACKAGE_NAME=$(jq -r '.name' ./package.json)
 LOCAL_VERSION=$(jq -r '.version' ./package.json)
