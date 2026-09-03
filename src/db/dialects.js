@@ -1,6 +1,5 @@
 // src/db/dialects.js
 const mysql = require('mysql2');
-const { Client: PgClient } = require('pg');
 
 // Ta regex de validation existante (ex: /^[a-zA-Z_][a-zA-Z0-9_]*$/)
 const SAFE_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -50,7 +49,9 @@ function formatDateDefault(defaultValue, quote) {
 }
 
 function formatStringDefault(defaultValue, quote) {
-    const escapedValue = String(defaultValue).replace(new RegExp(quote, "g"), `${quote}${quote}`);
+    const escapedValue = quote === "'"
+        ? String(defaultValue).replace(/'/g, "''")
+        : String(defaultValue).replace(/"/g, '""');
     return `DEFAULT ${quote}${escapedValue}${quote}`;
 }
 
@@ -112,11 +113,11 @@ const dialects = {
             }
             if (defaultValue instanceof Date) return formatDateDefault(defaultValue, "'");
             if (isSqlTemporalDefault(defaultValue)) return "DEFAULT CURRENT_TIMESTAMP";
-            if (typeof defaultValue === "string") return `DEFAULT '${String(defaultValue).replace(/'/g, "''")}'`;
+            if (typeof defaultValue === "string") return formatStringDefault(defaultValue, "'");
             if (typeof defaultValue === "number" || typeof defaultValue === "bigint") return `DEFAULT ${defaultValue}`;
             if (typeof defaultValue === "boolean") return `DEFAULT ${defaultValue ? "TRUE" : "FALSE"}`;
-            if (typeof defaultValue === "object") return `DEFAULT '${JSON.stringify(defaultValue).replace(/'/g, "''")}'`;
-            return `DEFAULT '${String(defaultValue).replace(/'/g, "''")}'`;
+            if (typeof defaultValue === "object") return formatStringDefault(JSON.stringify(defaultValue), "'");
+            return formatStringDefault(defaultValue, "'");
         },
         execute: async (client, sql, values = []) => {
             let pgSql = sql;
@@ -138,12 +139,19 @@ const dialects = {
 let currentDialectName = "mysql";
 
 function setGlobalDialect(dialectName) {
-    if (!dialects[dialectName]) throw new Error(`Unsupported dialect: ${dialectName}`);
+    if (dialectName !== "mysql" && dialectName !== "postgres") {
+        throw new Error(`Unsupported dialect: ${dialectName}`);
+    }
     currentDialectName = dialectName;
 }
 
 function getDialect() {
-    return dialects[currentDialectName];
+    switch (currentDialectName) {
+        case "postgres":
+            return dialects.postgres;
+        case "mysql":
+            return dialects.mysql;
+    }
 }
 
 module.exports = { getDialect, setGlobalDialect };
