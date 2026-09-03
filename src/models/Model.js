@@ -15,6 +15,10 @@ function getFieldType(field) {
     if (field && field.name !== undefined) return field.name;
 }
 
+function getForeignKeyReference(foreignKey) {
+    return /^([a-zA-Z_][a-zA-Z0-9_]*)(?:\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\)|\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*)$/.exec(foreignKey);
+}
+
 function getColumnDefinition(fieldName, field) {
     if (field.primary_key && field.unique) {
         throw new Error(`Field '${fieldName}' cannot be both PRIMARY KEY and UNIQUE.`);
@@ -29,7 +33,8 @@ function getColumnDefinition(fieldName, field) {
         const enumValues = field.enum.map(v => `'${v.replace(/'/g, "''")}'`).join(", ");
         colDef = `ENUM(${enumValues})`;
     } else {
-        colDef = `${type}${(type == "VARCHAR" || type == "INT") ? `(${field.length > 0 ? field.length : 255})` : ""}`;
+        const hasLength = type === "VARCHAR" || (type === "INT" && getDialect().name === "mysql");
+        colDef = `${type}${hasLength ? `(${field.length > 0 ? field.length : 255})` : ""}`;
     }
 
     if (field.required) colDef += ' NOT NULL';
@@ -79,7 +84,9 @@ class Model {
             dependencies[model.name] = [];
             for (const [_, field] of Object.entries(model.schema.schemaDict)) {
                 if (field && field.foreignKey) {
-                    const refTable = field.foreignKey.split('(')[0].trim();
+                    const reference = getForeignKeyReference(field.foreignKey);
+                    if (!reference) throw new Error(`Invalid foreign key definition for field ${_}.`);
+                    const refTable = reference[1];
                     dependencies[model.name].push(refTable);
                 }
             }
@@ -97,7 +104,7 @@ class Model {
             setSafe(visited, table, 'temp');
             const deps = getSafe(dependencies, table)
             for (const dep of deps) {
-                if (getSafe(modelMap, dep)) {
+                if (dep !== table && getSafe(modelMap, dep)) {
                     console.log(`Table ${table} depends on ${dep}.`);
                     visit(dep, [...stack, table]);
                 }
@@ -136,9 +143,10 @@ class Model {
             let lengthDefault = 255;
 
             if (field && field.foreignKey) {
-                const reference = /^([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\)$/.exec(field.foreignKey);
+                const reference = getForeignKeyReference(field.foreignKey);
                 if (!reference) throw new Error(`Invalid foreign key definition for field ${fieldName}.`);
-                foreignKey.push(`FOREIGN KEY (${getDialect().escape(fieldName)}) REFERENCES ${getDialect().escape(reference[1])} (${getDialect().escape(reference[2])})`);
+                const referenceColumn = reference[2] || reference[3];
+                foreignKey.push(`FOREIGN KEY (${getDialect().escape(fieldName)}) REFERENCES ${getDialect().escape(reference[1])} (${getDialect().escape(referenceColumn)})`);
             }
 
             if (!field.type && typeof field == "object" && !(Array.isArray(field.enum) && field.enum.length > 0)) throw new Error(`Field ${fieldName} has no type defined.`);

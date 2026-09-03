@@ -57,6 +57,7 @@ function formatStringDefault(defaultValue, quote) {
 
 const dialects = {
     mysql: {
+        name: "mysql",
         // Sécurisé avec ta validation + mysql.escapeId natif
         escape: (identifier) => secureEscape(identifier, (part) => mysql.escapeId(part)),
         escapeValue: (value) => mysql.escape(value),
@@ -90,8 +91,9 @@ const dialects = {
         }
     },
     postgres: {
+        name: "postgres",
         // Sécurisé avec ta validation + standard ANSI SQL (double-quotes doublées pour l'échappement)
-        escape: (identifier) => secureEscape(identifier, (part) => `"${part.replace(/"/g, '""')}"`),
+        escape: (identifier) => secureEscape(identifier, (part) => `"${part.replace(/"/g, '""')}"`),  
         escapeValue: (value) => {
             if (value === null) return 'NULL';
             if (typeof value === 'number') return value.toString();

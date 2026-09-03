@@ -246,6 +246,19 @@ describe.each(dialectCases)('Model - $name', ({ name, quote, pool }) => {
         expect(sql).toContain('DEFAULT CURRENT_TIMESTAMP');
     });
 
+    test('generateCreateTableStatement génère INT sans longueur pour PostgreSQL et avec longueur pour MySQL', () => {
+        const model = new Model('users', { schemaDict: {} });
+        const sql = model.generateCreateTableStatement({
+            version: { type: Number, length: 255 }
+        });
+        if (name === 'mysql') {
+            expect(sql).toContain(`${quote}version${quote} INT(255)`);
+        } else {
+            expect(sql).toContain(`${quote}version${quote} INT`);
+            expect(sql).not.toContain('INT(');
+        }
+    });
+
     test('generateCreateTableStatement rejette un champ direct sans type', () => {
         const model = new Model('users', { schemaDict: {} });
         expect(() => model.generateCreateTableStatement({ invalid: 'UNKNOWN_TYPE' })).toThrow(
@@ -253,10 +266,18 @@ describe.each(dialectCases)('Model - $name', ({ name, quote, pool }) => {
         );
     });
 
+    test('generateCreateTableStatement accepte les références de FK avec un point', () => {
+        const model = new Model('users', { schemaDict: {} });
+        const sql = model.generateCreateTableStatement({
+            role_id: { type: Number, foreignKey: 'roles.id' }
+        });
+        expect(sql).toContain(`REFERENCES ${quote}roles${quote} (${quote}id${quote})`);
+    });
+
     test('generateCreateTableStatement rejette une référence de FK invalide', () => {
         const model = new Model('users', { schemaDict: {} });
         expect(() => model.generateCreateTableStatement({
-            role_id: { type: Number, foreignKey: 'roles.id' }
+            role_id: { type: Number, foreignKey: 'roles-id' }
         })).toThrow('Invalid foreign key definition for field role_id.');
     });
 
@@ -271,6 +292,20 @@ describe.each(dialectCases)('Model - $name', ({ name, quote, pool }) => {
         new Model('table_a', { schemaDict: { b_id: { foreignKey: 'table_b(id)' } } });
         new Model('table_b', { schemaDict: { a_id: { foreignKey: 'table_a(id)' } } });
         await expect(Model.syncAllTables()).rejects.toThrow('Cyclic foreign key dependency detected');
+    });
+
+    test('syncAllTables rejette une référence de FK invalide', async () => {
+        new Model('users', { schemaDict: { role_id: { type: Number, foreignKey: 'roles-id' } } });
+        await expect(Model.syncAllTables()).rejects.toThrow('Invalid foreign key definition for field role_id.');
+    });
+
+    test('syncAllTables trie les dépendances avec la notation pointée', async () => {
+        new Model('folders', { schemaDict: { parent_uuid: { type: String, foreignKey: 'folders.uuid' } } });
+        new Model('users', { schemaDict: { folder_uuid: { type: String, foreignKey: 'folders(uuid)' } } });
+        resolveRows([], { rowCount: 0 });
+        await Model.syncAllTables();
+        expect(driverMock()).toHaveBeenCalledTimes(2);
+        expect(driverMock().mock.calls[0][0]).toContain(`${quote}folders${quote}`);
     });
 
     test('syncAllTables journalise et propage une erreur de création', async () => {

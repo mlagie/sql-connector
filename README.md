@@ -150,7 +150,7 @@ Example with multiple foreign keys:
 ```javascript
 const orderSchema = new Schema({
   user_id: { type: Number, foreignKey: 'users(id)' },
-  product_id: { type: Number, foreignKey: 'products(id)' }
+  product_id: { type: Number, foreignKey: 'products.id' }
 });
 ```
 
