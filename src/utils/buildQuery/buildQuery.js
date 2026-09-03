@@ -1,4 +1,5 @@
-const { escapeIdentifier, escapeOrderDirection, escapeValue } = require("../sql");
+const { getDialect } = require("../../db/dialects");
+const { escapeOrderDirection } = require("../sql");
 const count = require("./count");
 
 function buildGroupByItem(group) {
@@ -9,44 +10,44 @@ function buildGroupByItem(group) {
     if (typeof group === 'object') {
         if (group.dateFormat) {
             const [col, format] = group.dateFormat;
-            sql = `DATE_FORMAT(${escapeIdentifier(col)}, ${escapeValue(format)})`;
+            sql = `DATE_FORMAT(${getDialect().escape(col)}, ${getDialect().escapeValue(format)})`;
         }
         if (group.col) {
-            sql = escapeIdentifier(group.col);
+            sql = getDialect().escape(group.col);
         }
         if (group.as) {
-            sql += ` AS ${escapeIdentifier(group.as)}`;
+            sql += ` AS ${getDialect().escape(group.as)}`;
         }
         return sql;
     }
 
-    return escapeIdentifier(group.trim());
+    return getDialect().escape(group.trim());
 }
 
 function buildField(field) {
     if (typeof field === 'string') {
         if (field === "*") return "*";
-        return escapeIdentifier(field);
+        return getDialect().escape(field);
     }
 
     let sql = '';
 
     if (field.sum)
-        sql = `SUM(${escapeIdentifier(field.sum)})`;
+        sql = `SUM(${getDialect().escape(field.sum)})`;
     else if (field.dateFormat) {
         const [col, format] = field.dateFormat;
-        sql = `DATE_FORMAT(${escapeIdentifier(col)}, ${escapeValue(format)})`;
+        sql = `DATE_FORMAT(${getDialect().escape(col)}, ${getDialect().escapeValue(format)})`;
     }
     else if (field.col)
-        sql = escapeIdentifier(field.col);
+        sql = getDialect().escape(field.col);
     else if (field.distinct)
-        sql = `DISTINCT ${escapeIdentifier(field.distinct)}`;
+        sql = `DISTINCT ${getDialect().escape(field.distinct)}`;
     else if (field.count)
         sql = count(field.count);
     if (field.as)
-        sql += ` AS ${escapeIdentifier(field.as)}`;
+        sql += ` AS ${getDialect().escape(field.as)}`;
     else if (field.sum)
-        sql += ` AS ${escapeIdentifier(field.sum)}`;
+        sql += ` AS ${getDialect().escape(field.sum)}`;
     return sql;
 }
 
@@ -60,7 +61,7 @@ function buildSelect(select = []) {
         .join(',\n');
 }
 
-function buildWhere(where, values = []) {
+function buildWhere(where, values) {
     const conditions = [];
 
     for (const [key, value] of Object.entries(where)) {
@@ -109,20 +110,19 @@ function buildWhere(where, values = []) {
                             .join(",");
 
                         conditions.push(
-                            `${escapeIdentifier(key)} ${operator} (${placeholders})`
+                            `${getDialect().escape(key)} ${operator} (${placeholders})`
                         );
                         values.push(...operatorValue);
                     } else {
-                        conditions.push(`${escapeIdentifier(key)} ${operator} ?`);
+                        conditions.push(`${getDialect().escape(key)} ${operator} ?`);
                         values.push(operatorValue);
                     }
                 }
-
                 continue;
             }
         }
 
-        conditions.push(`${escapeIdentifier(key)} = ?`);
+        conditions.push(`${getDialect().escape(key)} = ?`);
         values.push(value);
     }
 
@@ -159,8 +159,8 @@ function buildQueryParts(options) {
     if (options.orderBy) {
         const order = options.orderBy.map(o =>
             typeof o === 'string'
-                ? escapeIdentifier(o)
-                : `${escapeIdentifier(o.field)} ${escapeOrderDirection(o.direction || 'ASC')}`
+                ? getDialect().escape(o)
+                : `${getDialect().escape(o.field)} ${escapeOrderDirection(o.direction || 'ASC')}`
         );
         parts.push(`ORDER BY ${order.join(', ')}`);
     }

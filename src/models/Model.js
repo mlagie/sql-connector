@@ -4,7 +4,7 @@ const { getConnexion } = require("../db/connexion");
 const { ModelInstance } = require("./ModelInstance");
 const { buildSelect, buildQueryParts } = require("../utils/buildQuery/buildQuery");
 const { getSafe, setSafe } = require("../utils/security/safe");
-const { escapeIdentifier, escapeIdentifierList } = require("../utils/sql");
+const { getDialect } = require("../db/dialects");
 
 function getFieldType(field) {
     if (typeof field === "object") {
@@ -15,65 +15,33 @@ function getFieldType(field) {
     if (field && field.name !== undefined) return field.name;
 }
 
-function isDateLikeType(fieldType) {
-    const normalizedType = String(fieldType ?? "").toLowerCase();
-    return ["date", "datetime", "timestamp", "now"].includes(normalizedType);
-}
-
-function isSqlTemporalDefault(defaultValue) {
-    if (typeof defaultValue !== "string") return false;
-
-    const normalizedValue = defaultValue.trim().toUpperCase();
-    return ["CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP()", "NOW", "NOW()"].includes(normalizedValue);
-}
-
-function formatDefaultSql(defaultValue, fieldType) {
-    if (defaultValue === undefined) return null;
-    if (defaultValue === null) return "DEFAULT NULL";
-
-    if (typeof defaultValue === "function") {
-        if (isDateLikeType(fieldType)) return "DEFAULT CURRENT_TIMESTAMP";
-        return formatDefaultSql(defaultValue(), fieldType);
-    }
-
-    if (defaultValue instanceof Date) {
-        const formattedDate = defaultValue.toISOString().slice(0, 19).replace("T", " ");
-        return `DEFAULT "${formattedDate}"`;
-    }
-
-    if (isSqlTemporalDefault(defaultValue)) return "DEFAULT CURRENT_TIMESTAMP";
-    if (typeof defaultValue === "string") return `DEFAULT "${defaultValue.replace(/"/g, '\\"')}"`;
-    if (typeof defaultValue === "number" || typeof defaultValue === "bigint") return `DEFAULT ${defaultValue}`;
-    if (typeof defaultValue === "boolean") return `DEFAULT ${defaultValue ? 1 : 0}`;
-    if (typeof defaultValue === "object") return `DEFAULT "${JSON.stringify(defaultValue).replace(/"/g, '\\"')}"`;
-
-    return `DEFAULT "${String(defaultValue).replace(/"/g, '\\"')}"`;
-}
-
 function getColumnDefinition(fieldName, field) {
     if (field.primary_key && field.unique) {
         throw new Error(`Field '${fieldName}' cannot be both PRIMARY KEY and UNIQUE.`);
     }
 
     const fieldType = getFieldType(field);
-    let colDef;
+    const type = getSafe(sqlTypeMap, fieldType);
+    if (!type) throw new Error(`Field ${fieldName} has unsupported type ${fieldType}.`);
 
+    let colDef;
     if (Array.isArray(field.enum) && field.enum.length > 0) {
         const enumValues = field.enum.map(v => `'${v.replace(/'/g, "''")}'`).join(", ");
         colDef = `ENUM(${enumValues})`;
     } else {
-        const type = getSafe(sqlTypeMap, fieldType);
-        if (!type) throw new Error(`Field ${fieldName} has unsupported type ${fieldType}.`);
         colDef = `${type}${(type == "VARCHAR" || type == "INT") ? `(${field.length > 0 ? field.length : 255})` : ""}`;
     }
+
     if (field.required) colDef += ' NOT NULL';
-    const defaultDefinition = formatDefaultSql(field.default, fieldType);
+
+    const defaultDefinition = getDialect().formatDefaultSql(field.default, fieldType);
+
     if (defaultDefinition !== null) colDef += ` ${defaultDefinition}`;
     if (field.unique) colDef += ' UNIQUE';
     if (field.auto_increment) colDef += ' AUTO_INCREMENT';
     if (field.primary_key) colDef += ' PRIMARY KEY'
     if (typeof field.customize === 'string' && field.customize.length != 0) colDef += ` ${field.customize}`;
-    return `${escapeIdentifier(fieldName)} ${colDef}`;
+    return `${getDialect().escape(fieldName)} ${colDef}`;
 }
 
 /**
@@ -117,8 +85,6 @@ class Model {
             }
         }
 
-        const conn = getConnexion();
-
         const sorted = [];
         const visited = {};
         function visit(table, stack = []) {
@@ -131,7 +97,10 @@ class Model {
             setSafe(visited, table, 'temp');
             const deps = getSafe(dependencies, table)
             for (const dep of deps) {
-                if (getSafe(modelMap, dep)) visit(dep, [...stack, table]);
+                if (getSafe(modelMap, dep)) {
+                    console.log(`Table ${table} depends on ${dep}.`);
+                    visit(dep, [...stack, table]);
+                }
             }
             setSafe(visited, table, true);
             sorted.push(table);
@@ -144,7 +113,7 @@ class Model {
             const model = getSafe(modelMap, table);
 
             try {
-                await conn.promise().execute(model.generateCreateTableStatement(model.schema.schemaDict));
+                await getDialect().execute(getConnexion(), model.generateCreateTableStatement(model.schema.schemaDict));
                 await logs(`The table ${model.name} has been created or already exists`);
             } catch (err) {
                 error(`Error creating table: ${err} with table name: ${model.name}`);
@@ -166,6 +135,12 @@ class Model {
             const field = getSafe(schema, fieldName);
             let lengthDefault = 255;
 
+            if (field && field.foreignKey) {
+                const reference = /^([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\)$/.exec(field.foreignKey);
+                if (!reference) throw new Error(`Invalid foreign key definition for field ${fieldName}.`);
+                foreignKey.push(`FOREIGN KEY (${getDialect().escape(fieldName)}) REFERENCES ${getDialect().escape(reference[1])} (${getDialect().escape(reference[2])})`);
+            }
+
             if (!field.type && typeof field == "object" && !(Array.isArray(field.enum) && field.enum.length > 0)) throw new Error(`Field ${fieldName} has no type defined.`);
 
             const fieldType = getFieldType(field);
@@ -175,16 +150,16 @@ class Model {
             }
             if (Array.isArray(field.enum) && field.enum.length > 0) {
                 const enumValues = field.enum.map(v => `'${v.replace(/'/g, "''")}'`).join(", ");
-                return `${fieldName} ENUM(${enumValues})`;
+                return `${getDialect().escape(fieldName)} ENUM(${enumValues})`;
             }
 
             const type = getSafe(sqlTypeMap, fieldType);
 
             if (!type) throw new Error(`Field ${fieldName} has unsupported type ${field}`);
-
-            return `${fieldName} ${type == "VARCHAR" ? `${type}(${lengthDefault})` : type}`;
+            if (type == "VARCHAR") return `${getDialect().escape(fieldName)} ${type}(${lengthDefault})`;
+            return `${getDialect().escape(fieldName)} ${type}`;
         });
-        return `CREATE TABLE IF NOT EXISTS ${escapeIdentifier(this.name)} (${columns.join(', ')}${foreignKey.length > 0 ? ", " + foreignKey.join(', ') : ""}) ENGINE=InnoDB`;
+        return `CREATE TABLE IF NOT EXISTS ${getDialect().escape(this.name)} (${columns.join(', ')}${foreignKey.length > 0 ? ", " + foreignKey.join(', ') : ""}) ${getDialect().tableSuffix};`;
     }
 
     /**
@@ -195,11 +170,11 @@ class Model {
      */
     async save(data) {
         const keys = Object.keys(data);
-        const sql_request = `INSERT INTO ${escapeIdentifier(this.name)} (${escapeIdentifierList(keys)}) VALUES (${keys.map(() => "?").join(", ")})`;
+        const sql_request = `INSERT INTO ${getDialect().escape(this.name)} (${getDialect().escapeIdentifierList(keys)}) VALUES (${keys.map(() => "?").join(", ")})`;
 
         try {
-            const result = await getConnexion().promise().execute(sql_request, Object.values(data));
-            return result[0];
+            const result = await getDialect().execute(getConnexion(), sql_request, Object.values(data));
+            return result;
         } catch (err) {
             error(`Error inserting data into ${this.name}: ${err}`);
             throw err;
@@ -252,9 +227,9 @@ class Model {
                 if (typeof item === 'string') {
                     if (!item.includes('.')) {
                         if (item.startsWith('name')) {
-                            return `${escapeIdentifier(join.table)}.${escapeIdentifier(item)}`;
+                            return `${join.table}.${item}`;
                         }
-                        return `${escapeIdentifier(this.name)}.${escapeIdentifier(item)}`;
+                        return `${this.name}.${item}`;
                     }
                 }
                 return item;
@@ -262,15 +237,14 @@ class Model {
         }
         let joinClause = "";
         if (join && join.table && join.on) {
-            joinClause = ` INNER JOIN ${escapeIdentifier(join.table)} ON ${join.on}`;
+            joinClause = ` INNER JOIN ${getDialect().escape(join.table)} ON ${join.on}`;
         }
 
         const { sql: whereClause, values } = buildQueryParts(options);
-        const query = `SELECT ${buildSelect(select)} FROM ${escapeIdentifier(this.name)}${joinClause} ${whereClause}`;
+        const query = `SELECT ${buildSelect(select)} FROM ${getDialect().escape(this.name)}${joinClause} ${whereClause}`;
 
         try {
-            const result = await getConnexion().promise().execute(query, values);
-            const rows = result && Array.isArray(result) ? result[0] : result;
+            const rows = await getDialect().execute(getConnexion(), query, values);
 
             if (!rows || rows.length === 0) return [];
 
@@ -290,8 +264,8 @@ class Model {
         try {
             const { sql: whereClause, values } = buildQueryParts(filter);
 
-            const rows = await getConnexion().promise().execute(`SELECT COUNT(*) as count FROM ${escapeIdentifier(this.name)} ${whereClause}`, values);
-            const resultRows = rows && Array.isArray(rows) ? rows[0] : [];
+            const rows = await getDialect().execute(getConnexion(), `SELECT COUNT(*) as count FROM ${getDialect().escape(this.name)} ${whereClause}`, values);
+            const resultRows = rows && Array.isArray(rows) ? rows : [];
 
             if (!resultRows || resultRows.length === 0) return 0;
 
@@ -314,9 +288,9 @@ class Model {
      */
     async customRequest(custom, custom_err_name = "") {
         try {
-            const rows = await getConnexion().promise().execute(custom);
+            const rows = await getDialect().execute(getConnexion(), custom);
 
-            if (rows[0].length == 0) return 0;
+            if (!rows || rows.length === 0) return 0;
 
             return new ModelInstance(this.name, rows[0], this.schema);
         } catch (err) {
@@ -336,10 +310,10 @@ class Model {
     async delete(filter) {
         const { sql: whereClause, values } = buildQueryParts(filter);
 
-        const sql_request = `DELETE FROM ${escapeIdentifier(this.name)} WHERE ${whereClause}`;
+        const sql_request = `DELETE FROM ${getDialect().escape(this.name)} WHERE ${whereClause}`;
         return new Promise((resolve, reject) => {
-            getConnexion().promise().execute(sql_request, values).then((rows) => {
-                if (rows[0].affectedRows === 0) return resolve(0);
+            getDialect().execute(getConnexion(), sql_request, values).then((result) => {
+                if (getDialect().getAffectedRows(result) === 0) return resolve(0);
 
                 return resolve(1);
             }).catch((err) => {
@@ -360,10 +334,10 @@ class Model {
      * @returns {Promise<void>} A promise that resolves when the query execution is complete.
      */
     async dropTable() {
-        const sql_request = `DROP TABLE IF EXISTS ${escapeIdentifier(this.name)};`;
+        const sql_request = `DROP TABLE IF EXISTS ${getDialect().escape(this.name)};`;
 
         try {
-            await getConnexion().promise().execute(sql_request);
+            await getDialect().execute(getConnexion(), sql_request);
         } catch (err) {
             error(`Error executing query drop: ${err}`);
             throw err;
@@ -391,11 +365,13 @@ class Model {
      */
     async generate_uuid(var_uuid = "uuid") {
         try {
-            const uuid = (await getConnexion().promise().execute("SELECT UUID();"))[0][0]["UUID()"];
-            const sql_request = `SELECT COUNT(*) FROM ${escapeIdentifier(this.name)} WHERE ${escapeIdentifier(var_uuid)} = ?;`;
-            const [rows] = await getConnexion().promise().execute(sql_request, [uuid]);
+            const uuidRows = await getDialect().execute(getConnexion(), getDialect().uuidQuery);
+            const uuid = getDialect().extractUuid(uuidRows);
 
-            if (rows[0]['COUNT(*)'] == 0) return uuid;
+            const sql_request = `SELECT COUNT(*) FROM ${getDialect().escape(this.name)} WHERE ${getDialect().escape(var_uuid)} = ${getDialect().getPlaceholder(0)};`;
+            const rows = await getDialect().execute(getConnexion(), sql_request, [uuid]);
+
+            if (getDialect().countKey(rows[0]) == 0) return uuid;
             return null;
         } catch (err) {
             error(`Error executing query gen_uuid: ${err}`);

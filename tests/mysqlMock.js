@@ -1,10 +1,14 @@
 const mockExecute = jest.fn();
-const mockEnd = jest.fn((callback) => { if (callback) callback(null); });
+const mockEnd = jest.fn();
 
 const mockPool = {
     promise: () => ({
         execute: mockExecute
     }),
+    end: mockEnd
+};
+const mockPgPool = {
+    query: jest.fn(),
     end: mockEnd
 };
 
@@ -19,4 +23,8 @@ jest.mock('mysql2', () => {
     };
 });
 
-module.exports = { mockExecute, mockEnd, mockPool };
+jest.mock('pg', () => ({
+    Pool: jest.fn(() => mockPgPool)
+}));
+
+module.exports = { mockExecute, mockEnd, mockPool, mockPgPool };

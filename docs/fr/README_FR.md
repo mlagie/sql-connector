@@ -5,7 +5,7 @@
 
 [English](../../README.md) | Français
 
-Le module sql-connector permet de gérer des connexions MySQL, de définir des schémas, de synchroniser automatiquement des tables et d'exposer des modèles pour manipuler les données simplement.
+Le module sql-connector permet de gérer des connexions MySQL et PostgreSQL, de définir des schémas, de synchroniser automatiquement des tables et d'exposer des modèles pour manipuler les données simplement.
 
 ## Importation
 
@@ -15,7 +15,7 @@ const { Schema, connect, logout, Model, ModelInstance, client, sqlTypeMap } = re
 
 ## Connexion à la base
 
-`connect(config)` ouvre une connexion MySQL à partir d'un objet de configuration compatible avec mysql2.
+`connect(config, dialect)` ouvre une connexion à une base de données. MySQL est utilisé par défaut ; utilisez `"postgres"` pour PostgreSQL.
 
 ```javascript
 const config = {
@@ -28,6 +28,29 @@ const config = {
 
 await connect(config);
 ```
+
+### PostgreSQL
+
+PostgreSQL utilise le driver `pg` :
+
+```javascript
+const postgresConfig = {
+  host: 'localhost',
+  port: 5432,
+  user: 'postgres',
+  password: 'password',
+  database: 'mydatabase'
+};
+
+await connect(postgresConfig, 'postgres');
+```
+
+Les dialectes supportés sont `mysql` et `postgres`.
+
+| Dialecte | Guillemets des identifiants | Placeholders | Valeurs booléennes par défaut |
+|----------|-----------------------------|--------------|-------------------------------|
+| MySQL | Accolades inverses | `?` | `1` / `0` |
+| PostgreSQL | Guillemets doubles | `$1`, `$2`, ... | `TRUE` / `FALSE` |
 
 `logout()` ferme proprement la connexion.
 
@@ -92,11 +115,21 @@ const userSchema = new Schema({
 module.exports = new Model("User", userSchema);
 ```
 
+Exemple avec plusieurs clés étrangères :
+
+```javascript
+const orderSchema = new Schema({
+  user_id: { type: Number, foreignKey: 'users(id)' },
+  product_id: { type: Number, foreignKey: 'products(id)' }
+});
+```
+
 ## Synchronisation des tables
 
-`Model.syncAllTables()` compare les schémas JS avec la base et applique uniquement les différences utiles.
+`Model.syncAllTables()` compare les schémas JS avec la base et applique uniquement les différences utiles. Les dépendances de clés étrangères sont créées dans le bon ordre et les cycles sont rejetés.
 
 - Ajout de colonne: automatique.
+- Les clés étrangères utilisent le format `table(colonne)` et peuvent être déclarées sur plusieurs champs.
 
 ```javascript
 await Model.syncAllTables();

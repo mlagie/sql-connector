@@ -132,6 +132,12 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         expect(record).toBeDefined();
     });
 
+    test("getRecordData - Doit renvoyer le tableau original quand il est vide", () => {
+        const instance = new ModelInstance("ProjectPipeline", []);
+
+        expect(instance.getRecordData()).toEqual([]);
+    });
+
     // === COUVRE LIGNES 99-102 (Extraction de Clé Primaire avec succès) ===
     test("updateOne() - Doit extraire la clé primaire depuis le dictionnaire de schéma", async () => {
         const mockData = { id: 77, name: "pipeline-target" };
@@ -146,6 +152,40 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
 
         const sqlGenerated = mockExecute.mock.calls[0];
         expect(sqlGenerated).toEqual(["UPDATE `ProjectPipeline` SET `name` = ? WHERE `id` = ?", ["pipeline-updated", 77]]);
+    });
+
+    test("updateOne() - retourne zéro quand aucune valeur n'est à modifier", async () => {
+        const instance = new ModelInstance("ProjectPipeline", { id: 1 });
+
+        await expect(instance.updateOne({})).resolves.toBe(0);
+        expect(mockExecute).not.toHaveBeenCalled();
+    });
+
+    test("updateOne() - utilise le record complet quand la clé primaire manque", async () => {
+        const instance = new ModelInstance("ProjectPipeline", { name: "target" }, {
+            schemaDict: { id: { primary_key: true } }
+        });
+        mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
+
+        await expect(instance.updateOne({ status: "patched" })).resolves.toBe(1);
+        expect(mockExecute.mock.calls[0][0]).toContain("WHERE `name` = ?");
+    });
+
+    test("updateOne() - utilise le tableau original si le tableau de lignes est vide", async () => {
+        const instance = new ModelInstance("ProjectPipeline", []);
+
+        await expect(instance.updateOne({ status: "patched" })).resolves.toBe(1);
+    });
+
+    test("updateOne() - utilise le premier élément du tableau dans le fallback", async () => {
+        const instance = new ModelInstance("ProjectPipeline", { id: 1 });
+        const spy = jest.spyOn(instance, "getRecordData");
+        spy.mockImplementationOnce(() => { throw new Error("Forced exception"); })
+            .mockImplementationOnce(() => [{ id: 1 }]);
+        mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
+
+        await expect(instance.updateOne({ status: "patched" })).resolves.toBe(1);
+        spy.mockRestore();
     });
 
     // === COUVRE LIGNES 120-124 (Bloc catch de repli de updateOne) ===
@@ -261,6 +301,23 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         expect(instance._data[0].name).toBe("after");
     });
 
+    test("updateOne() ne met pas à jour les données quand affectedRows vaut zéro", async () => {
+        const instance = new ModelInstance("ProjectPipeline", { id: 1, name: "before" });
+        mockExecute.mockResolvedValue([{ affectedRows: 0 }]);
+
+        await expect(instance.updateOne({ name: "after" })).resolves.toBe(0);
+        expect(instance._data.name).toBe("before");
+    });
+
+    test("updateOne() ne fusionne pas un premier élément de tableau non objet", async () => {
+        const instance = new ModelInstance("ProjectPipeline", [null]);
+        const spy = jest.spyOn(instance, "getRecordData").mockReturnValue({ id: 1 });
+        mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
+
+        await expect(instance.updateOne({ status: "patched" })).resolves.toBe(1);
+        spy.mockRestore();
+    });
+
     test("delete() retourne 0 quand aucune ligne n'est supprimée", async () => {
         const instance = new ModelInstance("ProjectPipeline", { id: 1 });
 
@@ -275,6 +332,13 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
 
         expect(await instance.delete({ id: 1 })).toBe(1);
+    });
+
+    test("deleteOne() retourne 0 quand aucune ligne n'est supprimée", async () => {
+        const instance = new ModelInstance("ProjectPipeline", { id: 200 });
+        mockExecute.mockResolvedValue([{ affectedRows: 0 }]);
+
+        await expect(instance.deleteOne()).resolves.toBe(0);
     });
 
     test("customRequest() retourne les données hydratées", async () => {
@@ -331,7 +395,6 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
 
         // 4. Exécution de la méthode
         const affected = await instance.updateOne({ status: "patched" });
-
         expect(affected).toBe(1);
         expect(mockExecute).toHaveBeenCalled();
 
@@ -339,6 +402,22 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         expect(sqlGenerated).toEqual(["UPDATE `ProjectPipeline` SET `status` = ? WHERE `id` = ? AND `status` = ?", ["patched", 10, "active"]]);
 
         // 5. On nettoie le spy pour ne pas impacter les autres tests
+        spy.mockRestore();
+    });
+
+    test("updateOne() - Doit conserver la chaîne si le JSON du fallback est invalide", async () => {
+        const instance = new ModelInstance("ProjectPipeline", { id: 10 });
+        const spy = jest.spyOn(instance, "getRecordData");
+
+        spy.mockImplementationOnce(() => {
+            throw new Error("Forced exception");
+        }).mockImplementationOnce(() => "{invalid-json");
+
+        mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
+
+        await expect(instance.updateOne({ status: "patched" })).rejects.toThrow(
+            "Raw string WHERE clauses are not allowed"
+        );
         spy.mockRestore();
     });
 

@@ -6,7 +6,7 @@ set -euo pipefail
 # Configuration
 # ============================================================================
 
-MIN_COVERAGE=90
+MIN_COVERAGE=95
 COVERAGE_FILE="coverage/coverage-final.json"
 
 # ============================================================================

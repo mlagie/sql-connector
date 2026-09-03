@@ -5,7 +5,7 @@
 
 [Français](./docs/fr/README_FR.md) | English
 
-sql-connector helps manage MySQL connections, define table schemas, sync tables automatically, and work with database models through a small API.
+sql-connector helps manage MySQL and PostgreSQL connections, define table schemas, sync tables automatically, and work with database models through a small API.
 
 ## Import
 
@@ -15,7 +15,7 @@ const { Schema, connect, logout, Model, ModelInstance, client, sqlTypeMap } = re
 
 ## Database connection
 
-`connect(config)` opens a MySQL connection using a configuration object compatible with mysql2.
+`connect(config, dialect)` opens a database connection. MySQL is used by default; pass `"postgres"` to use PostgreSQL.
 
 ```javascript
 const config = {
@@ -28,6 +28,29 @@ const config = {
 
 await connect(config);
 ```
+
+### PostgreSQL
+
+PostgreSQL uses the `pg` driver:
+
+```javascript
+const postgresConfig = {
+  host: 'localhost',
+  port: 5432,
+  user: 'postgres',
+  password: 'password',
+  database: 'mydatabase'
+};
+
+await connect(postgresConfig, 'postgres');
+```
+
+Supported dialects are `mysql` and `postgres`.
+
+| Dialect | Identifier quotes | Query placeholders | Boolean defaults |
+|---------|-------------------|--------------------|------------------|
+| MySQL | Backticks | `?` | `1` / `0` |
+| PostgreSQL | Double quotes | `$1`, `$2`, ... | `TRUE` / `FALSE` |
 
 `logout()` closes the active connection.
 
@@ -122,11 +145,21 @@ const userSchema = new Schema({
 module.exports = new Model("User", userSchema);
 ```
 
+Example with multiple foreign keys:
+
+```javascript
+const orderSchema = new Schema({
+  user_id: { type: Number, foreignKey: 'users(id)' },
+  product_id: { type: Number, foreignKey: 'products(id)' }
+});
+```
+
 ## Table synchronization
 
-`Model.syncAllTables()` compares JS schemas with the database and applies only meaningful differences.
+`Model.syncAllTables()` compares JS schemas with the database and applies only meaningful differences. Foreign-key dependencies are created in the required order, and cyclic dependencies are rejected.
 
 - New columns are added automatically.
+- Foreign keys use the `table(column)` format and may be declared on multiple fields.
 
 ```javascript
 await Model.syncAllTables();

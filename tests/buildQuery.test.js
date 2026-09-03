@@ -331,4 +331,54 @@ describe('Utils - buildQuery.js', () => {
         expect(result.sql).toEqual("GROUP BY `status`, `role`, DATE_FORMAT(`createdAt`, '%Y-%m')");
         expect(result.values).toEqual([]);
     });
+
+    test("GROUP BY supporte un alias", () => {
+        const result = buildQueryParts({
+            groupBy: [
+                {
+                    col: "role",
+                    as: "user_role"
+                }
+            ]
+        });
+
+        expect(result.sql)
+            .toBe("GROUP BY `role` AS `user_role`");
+
+        expect(result.values)
+            .toEqual([]);
+    });
+
+    test("WHERE avec valeur undefined", () => {
+        const result = buildQueryParts({
+            where: {
+                deleted_at: undefined
+            }
+        });
+
+        expect(result.sql).toBe("WHERE `deleted_at` = ?");
+        expect(result.values).toEqual([undefined]);
+    });
+
+    test("OR sans clause exploitable", () => {
+        const result = buildQueryParts({
+            where: {
+                OR: [{}]
+            }
+        });
+
+        expect(result.sql).toBe("WHERE ");
+        expect(result.values).toEqual([]);
+    });
+
+    test("AND sans clause exploitable", () => {
+        const result = buildQueryParts({
+            where: {
+                AND: [{}]
+            }
+        });
+
+        expect(result.sql).toBe("WHERE ");
+        expect(result.values).toEqual([]);
+    });
 });

@@ -2,6 +2,7 @@ const { error } = require("@mlagie/logger");
 const { getConnexion } = require("../db/connexion");
 const { getSafe, setSafe } = require("../utils/security/safe");
 const { buildQueryParts } = require("../utils/buildQuery/buildQuery");
+const { getDialect } = require("../db/dialects");
 
 /**
  * Represents an instance of a database model.
@@ -81,12 +82,18 @@ class ModelInstance {
      * @throws {Error} Throws an error if the update fails.
      */
     async updateOne(model) {
-        // 1. Paramétrisation sécurisée de la clause SET
         const setKeys = Object.keys(model);
         if (setKeys.length === 0) return 0;
 
-        const setClause = setKeys.map(key => `\`${key}\` = ?`).join(', ');
-        const values = Object.values(model); // On accumule les valeurs à modifier
+        const dialect = getDialect();
+        const values = Object.values(model);
+
+        let placeholderCounter = 0;
+        const setClause = setKeys.map(key => {
+            const clause = `${dialect.escape(key)} = ${dialect.getPlaceholder(placeholderCounter)}`;
+            placeholderCounter++;
+            return clause;
+        }).join(', ');
 
         let targetCriteria;
         try {
@@ -122,15 +129,14 @@ class ModelInstance {
             targetCriteria = fallbackRec;
         }
 
-        const { sql: whereClause, values: whereValues } = buildQueryParts({ where: targetCriteria });
-
+        const { sql: whereClause, values: whereValues } = buildQueryParts({ where: targetCriteria }, dialect, placeholderCounter);
         values.push(...whereValues);
 
-        const sql_request = `UPDATE \`${this._name}\` SET ${setClause} ${whereClause}`;
+        const sql_request = `UPDATE ${dialect.escape(this._name)} SET ${setClause} ${whereClause}`;
 
         try {
-            const [result] = await getConnexion().promise().execute(sql_request, values);
-            const affected = result && (result.affectedRows !== undefined ? result.affectedRows : 0);
+            const result = await dialect.execute(getConnexion(), sql_request, values);
+            const affected = dialect.getAffectedRows(result);
 
             if (affected > 0) {
                 const record = this.getRecordData();
@@ -141,7 +147,7 @@ class ModelInstance {
                 }
             }
 
-            return affected;
+            return affected; // On retourne le nombre exact de lignes modifiées (0 ou plus)
         } catch (err) {
             error(`Error executing query updateOne: ${err}`);
             throw err;
@@ -159,12 +165,12 @@ class ModelInstance {
 
         const sql_request = `DELETE FROM ${this._name} ${whereClause}`;
 
-        const rows = await getConnexion().promise().execute(sql_request, values).catch((err) => {
+        const result = await getDialect().execute(getConnexion(), sql_request, values).catch((err) => {
             error(`Error executing query delete: ${err}`);
             throw err;
         });
 
-        return rows[0].affectedRows === 0 ? 0 : 1;
+        return getDialect().getAffectedRows(result) === 0 ? 0 : 1;
     }
 
     /**
@@ -175,12 +181,12 @@ class ModelInstance {
     async deleteOne() {
         const { sql: whereClause, values } = buildQueryParts(this.getRecordData());
         const sql_request = `DELETE FROM ${this._name} ${whereClause}`;
-        const rows = await getConnexion().promise().execute(sql_request, values).catch((err) => {
+        const result = await getDialect().execute(getConnexion(), sql_request, values).catch((err) => {
             error(`Error executing query deleteOne: ${err}`);
             throw err;
         });
 
-        return rows[0].affectedRows === 0 ? 0 : 1;
+        return getDialect().getAffectedRows(result) === 0 ? 0 : 1;
     }
 
     /**
@@ -190,14 +196,14 @@ class ModelInstance {
      * @throws {Error} Throws an error if query execution fails.
      */
     async customRequest(custom) {
-        const rows = await getConnexion().promise().execute(custom).catch((err) => {
+        const rows = await getDialect().execute(getConnexion(), custom).catch((err) => {
             error(`Error executing query: ${err}`);
             throw err;
         });
 
-        if (rows[0].length == 0) return 0;
+        if (!rows || rows.length === 0) return 0;
 
-        return new ModelInstance(this._name, rows[0], this._schema)._data;
+        return new ModelInstance(this._name, rows, this._schema)._data;
     }
 }
 

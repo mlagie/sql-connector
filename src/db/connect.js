@@ -1,7 +1,9 @@
 const mysql = require("mysql2");
+const { Pool: PgPool } = require("pg");
 
 const { getConnexion, setConnexion } = require('./connexion');
 const { logs, error } = require("@mlagie/logger");
+const { setGlobalDialect } = require("./dialects");
 
 /**
  * Establishes a connection to the database using a given configuration.
@@ -11,6 +13,7 @@ const { logs, error } = require("@mlagie/logger");
  * @param {string} config.user The username for the connection.
  * @param {string} config.password The password for the connection.
  * @param {string} config.database The name of the database.
+ * @param {string} dialect The SQL dialect to use (e.g., 'mysql', 'postgres'). defaults to 'mysql'.
  * @returns {Promise<void>} A promise that resolves when the connection is established.
  * 
  * @example
@@ -19,12 +22,14 @@ const { logs, error } = require("@mlagie/logger");
  *   port: 6666,
  *   user: 'root',
  *   password: 'password',
- *   database: 'mydatabase'
+ *   database: 'mydatabase',
+ *   dialect: 'postgresql'
  * };
  * await connect(config);
  */
-async function connect(config) {
-    setConnexion(mysql.createPool(config));
+async function connect(config, dialect = 'mysql') {
+    setGlobalDialect(dialect);
+    setConnexion(dialect === 'postgres' ? new PgPool(config) : mysql.createPool(config));
 }
 
 /**
