@@ -158,7 +158,7 @@ await Model.syncAllTables();
 await userModel.save({ email: 'user@example.com', status: 'active' });
 
 const user = await userModel.find({ where: { email: 'user@example.com' }});
-await user[0].deleteOne();
+await user[0].delete();
 ```
 
 ## Fonction save
@@ -444,14 +444,14 @@ await User.save({ email: "user@example.com", status: "active", uuid: uuid, my_uu
 
 - `updateOne(model)` met à jour la ligne
 - `delete(model)` supprime la ligne avec un filtre
-- `deleteOne()` supprime la ligne de l'instance
+- `delete()` supprime la ligne de l'instance
 - `customRequest(custom)` exécute une requête personnalisée
 
 ```javascript
 const userInstance = new ModelInstance('users', { email: 'user@example.com' });
 
 await userInstance.updateOne({ status: 'inactive' });
-await userInstance.deleteOne();
+await userInstance.delete();
 ```
 
 ## Types SQL
