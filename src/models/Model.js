@@ -105,7 +105,6 @@ class Model {
             const deps = getSafe(dependencies, table)
             for (const dep of deps) {
                 if (dep !== table && getSafe(modelMap, dep)) {
-                    console.log(`Table ${table} depends on ${dep}.`);
                     visit(dep, [...stack, table]);
                 }
             }

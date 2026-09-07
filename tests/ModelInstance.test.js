@@ -84,12 +84,12 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         await expect(instance.delete({ status: "old" })).rejects.toThrow("Delete Failed");
     });
 
-    test("deleteOne() - Doit lever une erreur en cas d'échec SQL", async () => {
-        // Lignes 173-176 : Bloc .catch de deleteOne
+    test("delete() - Doit lever une erreur en cas d'échec SQL", async () => {
+        // Lignes 173-176 : Bloc .catch de delete
         const instance = new ModelInstance("ProjectPipeline", { id: 1 });
         mockExecute.mockRejectedValue(new Error("MySQL Fatal Delete"));
 
-        await expect(instance.deleteOne()).rejects.toThrow("MySQL Fatal Delete");
+        await expect(instance.delete()).rejects.toThrow("MySQL Fatal Delete");
     });
 
     test("customRequest() - Doit exécuter du SQL brut et hydrater ou renvoyer 0", async () => {
@@ -220,13 +220,13 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         expect(result).toBe(1);
     });
 
-    // === COUVRE LIGNE 178 (deleteOne avec affectedRows > 0) ===
-    test("deleteOne() - Doit renvoyer 1 si l'élément courant a été supprimé", async () => {
+    // === COUVRE LIGNE 178 (delete avec affectedRows > 0) ===
+    test("delete() - Doit renvoyer 1 si l'élément courant a été supprimé", async () => {
         const instance = new ModelInstance("ProjectPipeline", { id: 200 });
 
         // Ligne 178 (Cas affecté)
         mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
-        const result = await instance.deleteOne();
+        const result = await instance.delete();
         expect(result).toBe(1);
     });
 
@@ -245,11 +245,11 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         await expect(instance.delete({ status: "old" })).rejects.toThrow("Delete Failed");
     });
 
-    test("deleteOne() - Doit lever une erreur en cas d'échec SQL", async () => {
+    test("delete() - Doit lever une erreur en cas d'échec SQL", async () => {
         const instance = new ModelInstance("ProjectPipeline", { id: 1 });
         mockExecute.mockRejectedValue(new Error("MySQL Fatal Delete"));
 
-        await expect(instance.deleteOne()).rejects.toThrow("MySQL Fatal Delete");
+        await expect(instance.delete()).rejects.toThrow("MySQL Fatal Delete");
     });
 
     test("customRequest() - Doit exécuter du SQL brut et hydrater ou renvoyer 0", async () => {
@@ -334,11 +334,11 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         expect(await instance.delete({ id: 1 })).toBe(1);
     });
 
-    test("deleteOne() retourne 0 quand aucune ligne n'est supprimée", async () => {
+    test("delete() retourne 0 quand aucune ligne n'est supprimée", async () => {
         const instance = new ModelInstance("ProjectPipeline", { id: 200 });
         mockExecute.mockResolvedValue([{ affectedRows: 0 }]);
 
-        await expect(instance.deleteOne()).resolves.toBe(0);
+        await expect(instance.delete()).resolves.toBe(0);
     });
 
     test("customRequest() retourne les données hydratées", async () => {

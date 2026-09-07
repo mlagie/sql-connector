@@ -157,29 +157,11 @@ class ModelInstance {
      * @returns {Promise<Object>} A promise that resolves with the data deleted.
      * @throws {Error} Throws an error if the deletion fails.
      */
-    async delete(filter) {
+    async delete(filter = { where: this.getRecordData() }) {
         const { sql: whereClause, values } = buildQueryParts(filter);
-
-        const sql_request = `DELETE FROM ${this._name} ${whereClause}`;
-
+        const sql_request = `DELETE FROM ${getDialect().escape(this._name)} ${whereClause}`;
         const result = await getDialect().execute(getConnexion(), sql_request, values).catch((err) => {
             error(`Error executing query delete: ${err}`);
-            throw err;
-        });
-
-        return getDialect().getAffectedRows(result) === 0 ? 0 : 1;
-    }
-
-    /**
-     * Deletes a single entry in the database table based on the instance data.
-     * @returns {Promise<number>} A promise that resolves to the number of rows deleted.
-     * @throws {Error} Throws an error if the deletion fails.
-     */
-    async deleteOne() {
-        const { sql: whereClause, values } = buildQueryParts(this.getRecordData());
-        const sql_request = `DELETE FROM ${this._name} ${whereClause}`;
-        const result = await getDialect().execute(getConnexion(), sql_request, values).catch((err) => {
-            error(`Error executing query deleteOne: ${err}`);
             throw err;
         });
 

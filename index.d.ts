@@ -351,12 +351,7 @@ export class ModelInstance<TData extends Record<string, any> = Record<string, an
      * @throws {Error} Throws an error if the deletion fails.
      */
     delete(filter: Record<string, any>): Promise<number>;
-    /**
-     * Deletes a single entry in the database table based on the instance data.
-     * @returns {Promise<number>} A promise that resolves to the number of rows deleted.
-     * @throws {Error} Throws an error if the deletion fails.
-     */
-    deleteOne(): Promise<number>;
+
     /**
      * Runs a custom SQL_request query.
      * @param {string} custom The custom SQL_request query to execute.
