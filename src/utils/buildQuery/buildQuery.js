@@ -106,15 +106,17 @@ function buildWhere(where, values) {
                 for (const [operator, operatorValue] of Object.entries(value)) {
                     if (operator === "IN" || operator === "NOT IN") {
                         const placeholders = operatorValue
-                            .map(() => "?")
+                            .map((_, i) => getDialect().getPlaceholder(values.length + i))
                             .join(",");
 
                         conditions.push(
                             `${getDialect().escape(key)} ${operator} (${placeholders})`
                         );
                         values.push(...operatorValue);
+                    } else if (operatorValue === null && (operator === "=" || operator === "!=")) {
+                        conditions.push(`${getDialect().escape(key)} IS ${operator === "!=" ? "NOT " : ""}NULL`);
                     } else {
-                        conditions.push(`${getDialect().escape(key)} ${operator} ?`);
+                        conditions.push(`${getDialect().escape(key)} ${operator} ${getDialect().getPlaceholder(values.length)}`);
                         values.push(operatorValue);
                     }
                 }
@@ -122,7 +124,12 @@ function buildWhere(where, values) {
             }
         }
 
-        conditions.push(`${getDialect().escape(key)} = ?`);
+        if (value === null) {
+            conditions.push(`${getDialect().escape(key)} IS NULL`);
+            continue;
+        }
+
+        conditions.push(`${getDialect().escape(key)} = ${getDialect().getPlaceholder(values.length)}`);
         values.push(value);
     }
 
@@ -169,7 +176,7 @@ function buildQueryParts(options) {
         if (!Number.isInteger(options.limit) || options.limit < 0) {
             throw new Error("Invalid LIMIT value");
         }
-        
+
         parts.push(`LIMIT ?`);
         values.push(options.limit);
     }
