@@ -254,6 +254,39 @@ describe('Utils - buildQuery.js', () => {
         expect(result).toEqual('*');
     });
 
+    test('Test avec une condition avec null', () => {
+        const options = {
+            where: {
+                deleted_at: null
+            }
+        };
+        const result = buildQueryParts(options);
+        expect(result.sql).toEqual('WHERE `deleted_at` IS NULL');
+        expect(result.values).toEqual([]);
+    })
+
+    test('Test avec une condition avec null et un operateur =', () => {
+        const options = {
+            where: {
+                deleted_at: { "=": null }
+            }
+        };
+        const result = buildQueryParts(options);
+        expect(result.sql).toEqual('WHERE `deleted_at` IS NULL');
+        expect(result.values).toEqual([]);
+    })
+
+    test('Test avec une condition avec null et un operateur !=', () => {
+        const options = {
+            where: {
+                deleted_at: { "!=": null }
+            }
+        };
+        const result = buildQueryParts(options);
+        expect(result.sql).toEqual('WHERE `deleted_at` IS NOT NULL');
+        expect(result.values).toEqual([]);
+    })
+
     test('Devrait traiter correctement l\'opérateur imbriqué IN', () => {
         const options = {
             where: {
