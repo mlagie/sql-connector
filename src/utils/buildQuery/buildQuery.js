@@ -61,7 +61,7 @@ function buildSelect(select = []) {
         .join(',\n');
 }
 
-function buildWhere(where, values) {
+function buildWhere(where, values, offset = 0) {
     const conditions = [];
 
     for (const [key, value] of Object.entries(where)) {
@@ -70,7 +70,7 @@ function buildWhere(where, values) {
                 throw new Error("OR conditions cannot be empty");
             }
             const clauses = value
-                .map((item) => buildWhere(item, values))
+                .map((item) => buildWhere(item, values, offset))
                 .filter(Boolean);
 
             if (clauses.length) {
@@ -85,7 +85,7 @@ function buildWhere(where, values) {
                 throw new Error("AND conditions cannot be empty");
             }
             const clauses = value
-                .map((item) => buildWhere(item, values))
+                .map((item) => buildWhere(item, values, offset))
                 .filter(Boolean);
 
             if (clauses.length) {
@@ -106,7 +106,7 @@ function buildWhere(where, values) {
                 for (const [operator, operatorValue] of Object.entries(value)) {
                     if (operator === "IN" || operator === "NOT IN") {
                         const placeholders = operatorValue
-                            .map((_, i) => getDialect().getPlaceholder(values.length + i))
+                            .map((_, i) => getDialect().getPlaceholder(offset + values.length + i))
                             .join(",");
 
                         conditions.push(
@@ -116,7 +116,7 @@ function buildWhere(where, values) {
                     } else if (operatorValue === null && (operator === "=" || operator === "!=")) {
                         conditions.push(`${getDialect().escape(key)} IS ${operator === "!=" ? "NOT " : ""}NULL`);
                     } else {
-                        conditions.push(`${getDialect().escape(key)} ${operator} ${getDialect().getPlaceholder(values.length)}`);
+                        conditions.push(`${getDialect().escape(key)} ${operator} ${getDialect().getPlaceholder(offset + values.length)}`);
                         values.push(operatorValue);
                     }
                 }
@@ -129,7 +129,7 @@ function buildWhere(where, values) {
             continue;
         }
 
-        conditions.push(`${getDialect().escape(key)} = ${getDialect().getPlaceholder(values.length)}`);
+        conditions.push(`${getDialect().escape(key)} = ${getDialect().getPlaceholder(offset + values.length)}`);
         values.push(value);
     }
 
@@ -139,9 +139,10 @@ function buildWhere(where, values) {
 /**
  * Construit les parties de la requête et extrait les valeurs sécurisées
  * @param {Object} options Options de filtrage, tri et pagination
+ * @param {number} [valueOffset=0] Décalage d'index pour les placeholders (utile quand des valeurs ont déjà été liées avant le WHERE, ex: SET d'un UPDATE)
  * @returns {Object} Un objet contenant la chaîne SQL générée et le tableau des valeurs { sql, values }
  */
-function buildQueryParts(options) {
+function buildQueryParts(options, valueOffset = 0) {
     const parts = [];
     const values = [];
 
@@ -152,7 +153,7 @@ function buildQueryParts(options) {
         if (typeof options.where !== 'object' || Array.isArray(options.where)) {
             throw new Error("Raw string WHERE clauses are not allowed. Use a structured filter instead.");
         }
-        parts.push(`WHERE ${buildWhere(options.where, values)}`);
+        parts.push(`WHERE ${buildWhere(options.where, values, valueOffset)}`);
     }
 
     if (options.groupBy) {
@@ -177,7 +178,7 @@ function buildQueryParts(options) {
             throw new Error("Invalid LIMIT value");
         }
 
-        parts.push(`LIMIT ?`);
+        parts.push(`LIMIT ${getDialect().getPlaceholder(valueOffset + values.length)}`);
         values.push(options.limit);
     }
 

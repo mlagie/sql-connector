@@ -88,8 +88,8 @@ class ModelInstance {
         const dialect = getDialect();
         const values = Object.values(model);
 
-        const setClause = setKeys.map(key => {
-            return `${dialect.escape(key)} = ?`;
+        const setClause = setKeys.map((key, i) => {
+            return `${dialect.escape(key)} = ${dialect.getPlaceholder(i)}`;
         }).join(', ');
 
         let targetCriteria;
@@ -126,7 +126,7 @@ class ModelInstance {
             targetCriteria = fallbackRec;
         }
 
-        const { sql: whereClause, values: whereValues } = buildQueryParts({ where: targetCriteria });
+        const { sql: whereClause, values: whereValues } = buildQueryParts({ where: targetCriteria }, setKeys.length);
         values.push(...whereValues);
 
         const sql_request = `UPDATE ${dialect.escape(this._name)} SET ${setClause} ${whereClause}`;
