@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { getSafe } = require("../utils/security/safe");
 
 function assertIdentifier(value, label = "identifier") {
     if (typeof value !== "string" || !/^[A-Za-z_][A-Za-z0-9_$]*$/.test(value)) {
@@ -31,7 +32,7 @@ function normalizeDefault(value) {
 function stableStringify(value) {
     if (value === null || typeof value !== "object") return JSON.stringify(value);
     if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
-    return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(",")}}`;
+    return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${getSafe(value, k)}`)}.join(",")}}`;
 }
 
 function sha256(value) {
@@ -68,7 +69,7 @@ function parseDuration(value) {
         d: 86_400_000,
         w: 604_800_000
     };
-    return amount * factors[unit];
+    return amount * getSafe(factors, unit);
 }
 
 function clone(value) {

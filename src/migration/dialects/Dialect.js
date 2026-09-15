@@ -16,7 +16,7 @@ class Dialect {
         return quoteIdentifier(name, this.quote);
     }
 
-    placeholder(index) {
+    placeholder() {
         return "?";
     }
 
@@ -24,23 +24,23 @@ class Dialect {
         return Array.from({ length: count }, (_, i) => this.placeholder(i)).join(", ");
     }
 
-    execute(connection, sql, values = []) {
+    execute() {
         throw new Error(`${this.name} dialect must implement execute().`);
     }
 
-    async begin(connection) {}
-    async commit(connection) {}
-    async rollback(connection) {}
+    async begin() {}
+    async commit() {}
+    async rollback() {}
 
-    mapType(field) {
+    mapType() {
         throw new Error(`${this.name} dialect must implement mapType().`);
     }
 
-    columnDefinition(name, field) {
+    columnDefinition() {
         throw new Error(`${this.name} dialect must implement columnDefinition().`);
     }
 
-    createTable(table, schema) {
+    createTable() {
         throw new Error(`${this.name} dialect must implement createTable().`);
     }
 
@@ -52,7 +52,7 @@ class Dialect {
         return `ALTER TABLE ${this.escape(table)} RENAME COLUMN ${this.escape(oldName)} TO ${this.escape(newName)};`;
     }
 
-    alterColumn(table, name, field) {
+    alterColumn() {
         throw new Error(`${this.name} does not implement alterColumn().`);
     }
 

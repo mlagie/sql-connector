@@ -1,3 +1,5 @@
+const { setSafe } = require("../utils/security/safe");
+
 class BackupManager {
     constructor(connection, dialect, store) {
         this.connection = connection;
@@ -22,7 +24,7 @@ class BackupManager {
                 this.connection,
                 `SELECT * FROM ${this.dialect.escape(table)}`
             );
-            backup.tables[table] = rows;
+            setSafe(backup.tables, table, rows);
         }
 
         return this.store.writeBackup(migrationId, backup);

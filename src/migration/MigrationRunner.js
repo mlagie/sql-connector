@@ -1,7 +1,3 @@
-const fs = require("fs/promises");
-const path = require("path");
-const { sha256 } = require("./utils");
-
 class MigrationRunner {
     constructor({ connection, dialect, store, backupManager }) {
         this.connection = connection;

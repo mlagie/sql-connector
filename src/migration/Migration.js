@@ -1,6 +1,6 @@
 const { getConnexion } = require("../db/connexion");
 const { getDialect: getConnectorDialect } = require("../db/dialects");
-const { modelsToSnapshot, snapshotChecksum } = require("./SchemaSnapshot");
+const { modelsToSnapshot } = require("./SchemaSnapshot");
 const { SchemaInspector } = require("./SchemaInspector");
 const { SchemaDiffer } = require("./SchemaDiffer");
 const { MigrationPlan } = require("./MigrationPlan");
@@ -16,7 +16,9 @@ function resolveDialect(name) {
     try {
         const connectorDialect = getConnectorDialect();
         if (connectorDialect?.name) return createDialect(connectorDialect.name);
-    } catch {}
+    } catch (error) {
+        console.warn("Failed to resolve connector dialect:", error);
+    }
 
     return createDialect("mysql");
 }

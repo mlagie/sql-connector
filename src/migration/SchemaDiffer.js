@@ -1,3 +1,4 @@
+const { setSafe, getSafe } = require("../utils/security/safe");
 const { DestructiveMigrationError } = require("./errors");
 
 function normalizeType(type) {
@@ -30,7 +31,7 @@ function normalizeType(type) {
         text: "text"
     };
 
-    return aliases[value] || value;
+    return setSafe(aliases, value) || value;
 }
 
 function normalizeField(field) {
@@ -70,7 +71,7 @@ class SchemaDiffer {
             const desiredColumns = desiredTable.columns || {};
 
             // Table does not exist yet.
-            if (!currentTables[tableName]) {
+            if (!getSafe(currentTables, tableName)) {
                 operations.push({
                     type: "createTable",
                     table: tableName,
@@ -80,8 +81,8 @@ class SchemaDiffer {
                 continue;
             }
 
-            const currentTable = currentTables[tableName];
-            const currentColumns = currentTable.columns || {};
+            const currentTable = setSafe(currentTables, tableName);
+            const currentColumns = getSafe(currentTable.columns) || {};
 
             /*
              * First pass:
@@ -106,13 +107,13 @@ class SchemaDiffer {
                     );
                 }
 
-                if (!currentColumns[oldName]) {
+                if (!getSafe(currentColumns, oldName)) {
                     throw new Error(
                         `Column '${oldName}' specified by oldname for '${tableName}.${newName}' does not exist.`
                     );
                 }
 
-                if (currentColumns[newName]) {
+                if (getSafe(currentColumns, newName)) {
                     throw new Error(
                         `Cannot rename '${tableName}.${oldName}' to '${newName}' because '${newName}' already exists.`
                     );
@@ -173,7 +174,7 @@ class SchemaDiffer {
              * detect additions and modifications.
              */
             for (const [columnName, field] of Object.entries(desiredColumns)) {
-                const currentField = virtualCurrentColumns[columnName];
+                const currentField = getSafe(virtualCurrentColumns, columnName);
 
                 if (!currentField) {
                     operations.push({
@@ -209,7 +210,7 @@ class SchemaDiffer {
                     continue;
                 }
 
-                if (!desiredColumns[currentName]) {
+                if (!getSafe(desiredColumns, currentName)) {
                     const operation = {
                         type: "dropColumn",
                         table: tableName,
@@ -233,7 +234,7 @@ class SchemaDiffer {
          * Detect removed tables.
          */
         for (const tableName of Object.keys(currentTables)) {
-            if (!desiredTables[tableName]) {
+            if (!getSafe(desiredTables, tableName)) {
                 const operation = {
                     type: "dropTable",
                     table: tableName,

@@ -1,3 +1,5 @@
+const { setSafe } = require("../utils/security/safe");
+
 class SchemaInspector {
     constructor(connection, dialect) {
         this.connection = connection;
@@ -22,15 +24,14 @@ class SchemaInspector {
                 queries.columns,
                 this.dialect.name === "postgres" ? [tableName] : [tableName]
             );
-
-            tables[tableName] = {
+            setSafe(tables, tableName, {
                 columns: Object.fromEntries(
                     (columnRows || []).map(row => {
                         const name = row.column_name ?? row.COLUMN_NAME;
                         return [name, this.dialect.normalizeDatabaseColumn(row)];
                     })
                 )
-            };
+            });
         }
 
         return {

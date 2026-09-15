@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { Buffer } = require("node:buffer");
 const fs = require("fs/promises");
 
 const FORMAT = "sql-connector-migration-v1";

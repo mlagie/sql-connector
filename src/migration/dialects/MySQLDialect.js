@@ -57,7 +57,7 @@ class MySQLDialect extends Dialect {
         }
     }
 
-    defaultSql(value, field) {
+    defaultSql(value) {
         if (value === undefined) return "";
         if (value === null) return "DEFAULT NULL";
         if (typeof value === "number") return `DEFAULT ${value}`;

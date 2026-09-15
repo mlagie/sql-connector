@@ -19,43 +19,35 @@ class MigrationStore {
 
     async writeMigration(plan) {
         await this.ensureDirectories();
-
         if (!this.encryptionKey) {
             throw new Error("An encryption key is required to write migration files.");
         }
-
         const outputPath = path.join(this.directory, `${plan.id}.sql.enc`);
         const payload = encrypt(plan.sql, this.encryptionKey);
-
         await fs.writeFile(outputPath, payload, { encoding: "utf8", mode: 0o600 });
-
         return outputPath;
     }
 
     async writeBackup(name, content) {
         await this.ensureDirectories();
-
         if (!this.retention) return null;
         if (!this.encryptionKey) {
             throw new Error("An encryption key is required to write backups.");
         }
-
         const outputPath = path.join(this.backupDirectory, `${name}.json.enc`);
         await fs.writeFile(outputPath, encrypt(JSON.stringify(content, null, 2), this.encryptionKey), {
             encoding: "utf8",
             mode: 0o600
         });
-
         return outputPath;
     }
 
     async cleanup(now = Date.now()) {
         if (!this.retention) return 0;
-
         await this.ensureDirectories();
+
         const files = await fs.readdir(this.backupDirectory);
         let removed = 0;
-
         for (const file of files) {
             const fullPath = path.join(this.backupDirectory, file);
             const stat = await fs.stat(fullPath);
@@ -64,7 +56,6 @@ class MigrationStore {
                 removed++;
             }
         }
-
         return removed;
     }
 
