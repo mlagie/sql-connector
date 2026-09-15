@@ -61,7 +61,7 @@ function buildSelect(select = []) {
         .join(',\n');
 }
 
-function buildWhere(where, values, offset = 0) {
+function buildWhere(where, values, offset) {
     const conditions = [];
 
     for (const [key, value] of Object.entries(where)) {

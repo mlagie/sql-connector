@@ -34,10 +34,6 @@ function normalizeType(type) {
 }
 
 function normalizeField(field) {
-    if (!field) {
-        return field;
-    }
-
     return {
         type: normalizeType(field.type),
         length: field.length ?? null,
@@ -127,13 +123,6 @@ class SchemaDiffer {
                         `Column '${tableName}.${oldName}' is used by multiple oldname declarations.`
                     );
                 }
-
-                if (renamedTo.has(newName)) {
-                    throw new Error(
-                        `Column '${tableName}.${newName}' has multiple rename declarations.`
-                    );
-                }
-
                 const operation = {
                     type: "renameColumn",
                     table: tableName,
