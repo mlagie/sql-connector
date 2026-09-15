@@ -37,8 +37,6 @@ function getColumnDefinition(fieldName, field) {
         const precision = field.precision > 0 ? field.precision : 10;
         const scale = field.scale >= 0 ? field.scale : 0;
         colDef = `DECIMAL(${precision}, ${scale})`;
-    } else if (type === "BIT") {
-        colDef = `BIT(${field.length > 0 ? field.length : 1})`;
     } else {
         const hasLength = LENGTH_TYPES.has(type) || (type === "INT" && getDialect().name === "mysql");
         colDef = `${type}${hasLength ? `(${field.length > 0 ? field.length : 255})` : ""}`;
@@ -172,7 +170,6 @@ class Model {
             if (!type) throw new Error(`Field ${fieldName} has unsupported type ${field}`);
             if (LENGTH_TYPES.has(type)) return `${getDialect().escape(fieldName)} ${type}(${lengthDefault})`;
             if (type === "DECIMAL") return `${getDialect().escape(fieldName)} ${type}(10, 0)`;
-            if (type === "BIT") return `${getDialect().escape(fieldName)} ${type}(1)`;
             return `${getDialect().escape(fieldName)} ${type}`;
         });
         return `CREATE TABLE IF NOT EXISTS ${getDialect().escape(this.name)} (${columns.join(', ')}${foreignKey.length > 0 ? ", " + foreignKey.join(', ') : ""}) ${getDialect().tableSuffix};`;
