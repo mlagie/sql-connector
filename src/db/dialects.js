@@ -33,7 +33,7 @@ function escapeIdentifierList(identifiers) {
 }
 
 function isDateLikeType(fieldType) {
-    return ["date", "datetime", "timestamp", "now"].includes(String(fieldType ?? "").toLowerCase());
+    return ["date", "datetime", "timestamp", "now", "time", "year"].includes(String(fieldType ?? "").toLowerCase());
 }
 
 function isSqlTemporalDefault(defaultValue) {

@@ -1,4 +1,4 @@
-const { assertIdentifier, quoteIdentifier } = require("../utils");
+const { quoteIdentifier } = require("../utils");
 
 class Dialect {
     constructor(name, options = {}) {
