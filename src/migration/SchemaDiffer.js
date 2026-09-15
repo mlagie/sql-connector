@@ -31,7 +31,7 @@ function normalizeType(type) {
         text: "text"
     };
 
-    return setSafe(aliases, value) || value;
+    return getSafe(aliases, value) || value;
 }
 
 function normalizeField(field) {
@@ -81,8 +81,8 @@ class SchemaDiffer {
                 continue;
             }
 
-            const currentTable = setSafe(currentTables, tableName);
-            const currentColumns = getSafe(currentTable.columns) || {};
+            const currentTable = getSafe(currentTables, tableName);
+            const currentColumns = getSafe(currentTable, "columns") || {};
 
             /*
              * First pass:
