@@ -1,4 +1,4 @@
-const { setSafe, getSafe } = require("../utils/security/safe");
+const { getSafe } = require("../utils/security/safe");
 const { DestructiveMigrationError } = require("./errors");
 
 function normalizeType(type) {

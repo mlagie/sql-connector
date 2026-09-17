@@ -1,3 +1,5 @@
+const { getSafe } = require("../utils/security/safe");
+
 class MigrationRunner {
     constructor({ connection, dialect, store, backupManager }) {
         this.connection = connection;
@@ -162,7 +164,7 @@ class MigrationRunner {
             const columns = Object.keys(rows[0]);
             const escapedColumns = columns.map(column => this.dialect.escape(column)).join(", ");
             for (const row of rows) {
-                const values = columns.map(column => row[column]);
+                const values = columns.map(column => getSafe(row, column));
                 const sql = `INSERT INTO ${this.dialect.escape(table)} (${escapedColumns}) VALUES (${this.dialect.placeholders(values.length)});`;
                 await this.dialect.execute(this.connection, sql, values);
             }
