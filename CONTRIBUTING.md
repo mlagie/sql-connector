@@ -38,13 +38,13 @@ By participating in this project, you agree to abide by our
 The project uses ESLint (`eslint.config.mjs`). Before committing, run:
 
 ```bash
-npm run lint
+npm run security
 ```
 
 Fix any reported issues, or run the auto-fixer if one is configured:
 
 ```bash
-npm run lint -- --fix
+npm run security -- --fix
 ```
 
 ### Tests
@@ -102,7 +102,7 @@ Feature requests are welcome. Please open an issue describing:
 
 If your change affects the public API (`Schema`, `Model`, `connect`, etc.),
 please update `README.md` accordingly. If you can also update the French
-documentation in `docs/fr/README.md`, that's appreciated but not required.
+documentation in `docs/fr/README_FR.md`, that's appreciated but not required.
 
 ## License
 

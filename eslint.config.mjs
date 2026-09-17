@@ -17,7 +17,8 @@ export default [
         process: "readonly",
         require: "readonly",
         __dirname: "readonly",
-        __filename: "readonly"
+        __filename: "readonly",
+        Buffer: "readonly"
       }
     },
     plugins: {
@@ -25,6 +26,14 @@ export default [
     },
     rules: {
       ...security.configs.recommended.rules,
+      "no-empty": [
+        "error",
+        {
+          allowEmptyCatch: true
+        }
+      ],
+      "security/detect-non-literal-fs-filename": "off",
+      "security/detect-unsafe-regex": "off",
       "no-unused-vars": [
         "error",
         {

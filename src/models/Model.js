@@ -5,6 +5,7 @@ const { ModelInstance } = require("./ModelInstance");
 const { buildSelect, buildQueryParts } = require("../utils/buildQuery/buildQuery");
 const { getSafe, setSafe } = require("../utils/security/safe");
 const { getDialect } = require("../db/dialects");
+const LENGTH_TYPES = new Set(["VARCHAR", "CHAR", "BINARY", "VARBINARY"]);
 
 function getFieldType(field) {
     if (typeof field === "object") {
@@ -32,8 +33,12 @@ function getColumnDefinition(fieldName, field) {
     if (Array.isArray(field.enum) && field.enum.length > 0) {
         const enumValues = field.enum.map(v => `'${v.replace(/'/g, "''")}'`).join(", ");
         colDef = `ENUM(${enumValues})`;
+    } else if (type === "DECIMAL") {
+        const precision = field.precision > 0 ? field.precision : 10;
+        const scale = field.scale >= 0 ? field.scale : 0;
+        colDef = `DECIMAL(${precision}, ${scale})`;
     } else {
-        const hasLength = type === "VARCHAR" || (type === "INT" && getDialect().name === "mysql");
+        const hasLength = LENGTH_TYPES.has(type) || (type === "INT" && getDialect().name === "mysql");
         colDef = `${type}${hasLength ? `(${field.length > 0 ? field.length : 255})` : ""}`;
     }
 
@@ -163,7 +168,8 @@ class Model {
             const type = getSafe(sqlTypeMap, fieldType);
 
             if (!type) throw new Error(`Field ${fieldName} has unsupported type ${field}`);
-            if (type == "VARCHAR") return `${getDialect().escape(fieldName)} ${type}(${lengthDefault})`;
+            if (LENGTH_TYPES.has(type)) return `${getDialect().escape(fieldName)} ${type}(${lengthDefault})`;
+            if (type === "DECIMAL") return `${getDialect().escape(fieldName)} ${type}(10, 0)`;
             return `${getDialect().escape(fieldName)} ${type}`;
         });
         return `CREATE TABLE IF NOT EXISTS ${getDialect().escape(this.name)} (${columns.join(', ')}${foreignKey.length > 0 ? ", " + foreignKey.join(', ') : ""}) ${getDialect().tableSuffix};`;

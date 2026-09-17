@@ -366,4 +366,29 @@ describe.each(dialectCases)('Model - $name', ({ name, quote, pool }) => {
         rejectQuery(new Error('DELETE ERROR'));
         await expect(model.delete({ id: 1 })).rejects.toThrow('DELETE ERROR');
     });
+
+    test('generateCreateTableStatement applique les défauts DECIMAL (precision/scale absents)', () => {
+        const model = new Model('users', { schemaDict: {} });
+        const sql = model.generateCreateTableStatement({
+            amount: { type: 'Decimal' }
+        });
+        expect(sql).toContain(`${quote}amount${quote} DECIMAL(10, 0)`);
+    });
+
+    test('generateCreateTableStatement applique precision et scale explicites pour DECIMAL', () => {
+        const model = new Model('users', { schemaDict: {} });
+        const sql = model.generateCreateTableStatement({
+            amount: { type: 'Decimal', precision: 8, scale: 2 }
+        });
+        expect(sql).toContain(`${quote}amount${quote} DECIMAL(8, 2)`);
+    });
+
+    test('generateCreateTableStatement gère DECIMAL via un type direct (non objet)', () => {
+        const model = new Model('users', { schemaDict: {} });
+        function Decimal() {  }
+        const sql = model.generateCreateTableStatement({
+            amount: Decimal
+        });
+        expect(sql).toContain(`${quote}amount${quote} DECIMAL(10, 0)`);
+    });
 });

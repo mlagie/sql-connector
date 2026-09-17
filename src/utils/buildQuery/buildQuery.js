@@ -61,7 +61,14 @@ function buildSelect(select = []) {
         .join(',\n');
 }
 
-function buildWhere(where, values, offset = 0) {
+const COMPARISON_OPERATORS = ["=", "!=", ">", "<", ">=", "<=", "LIKE", "NOT LIKE", "ILIKE", "NOT ILIKE", "IN", "NOT IN", "BETWEEN", "NOT BETWEEN"];
+
+function buildCaseInsensitiveLike(dialect, key, placeholder, negate) {
+    if (dialect.name === "postgres") return null;
+    return `${negate ? "NOT " : ""}LOWER(${dialect.escape(key)}) LIKE LOWER(${placeholder})`;
+}
+
+function buildWhere(where, values, offset) {
     const conditions = [];
 
     for (const [key, value] of Object.entries(where)) {
@@ -95,28 +102,49 @@ function buildWhere(where, values, offset = 0) {
             continue;
         }
 
+        if (key === "NOT") {
+            if (!value || typeof value !== "object" || Array.isArray(value)) {
+                throw new Error("NOT condition must be an object");
+            }
+            const clause = buildWhere(value, values, offset);
+            if (clause) conditions.push(`NOT (${clause})`);
+            continue;
+        }
+
         if (value && typeof value === "object" && !Array.isArray(value)) {
             const operators = Object.keys(value);
 
-            const isOperatorObject = operators.some((op) =>
-                ["=", "!=", ">", "<", ">=", "<=", "LIKE", "IN", "NOT IN"].includes(op)
-            );
+            const isOperatorObject = operators.some((op) => COMPARISON_OPERATORS.includes(op));
 
             if (isOperatorObject) {
+                const dialect = getDialect();
+
                 for (const [operator, operatorValue] of Object.entries(value)) {
                     if (operator === "IN" || operator === "NOT IN") {
                         const placeholders = operatorValue
-                            .map((_, i) => getDialect().getPlaceholder(offset + values.length + i))
+                            .map((_, i) => dialect.getPlaceholder(offset + values.length + i))
                             .join(",");
 
-                        conditions.push(
-                            `${getDialect().escape(key)} ${operator} (${placeholders})`
-                        );
+                        conditions.push(`${dialect.escape(key)} ${operator} (${placeholders})`);
                         values.push(...operatorValue);
+                    } else if (operator === "BETWEEN" || operator === "NOT BETWEEN") {
+                        const [min, max] = operatorValue;
+                        const lowPlaceholder = dialect.getPlaceholder(offset + values.length);
+                        const highPlaceholder = dialect.getPlaceholder(offset + values.length + 1);
+
+                        conditions.push(`${dialect.escape(key)} ${operator} ${lowPlaceholder} AND ${highPlaceholder}`);
+                        values.push(min, max);
+                    } else if (operator === "ILIKE" || operator === "NOT ILIKE") {
+                        const placeholder = dialect.getPlaceholder(offset + values.length);
+                        const negate = operator === "NOT ILIKE";
+                        const fallback = buildCaseInsensitiveLike(dialect, key, placeholder, negate);
+
+                        conditions.push(fallback ?? `${dialect.escape(key)} ${operator} ${placeholder}`);
+                        values.push(operatorValue);
                     } else if (operatorValue === null && (operator === "=" || operator === "!=")) {
-                        conditions.push(`${getDialect().escape(key)} IS ${operator === "!=" ? "NOT " : ""}NULL`);
+                        conditions.push(`${dialect.escape(key)} IS ${operator === "!=" ? "NOT " : ""}NULL`);
                     } else {
-                        conditions.push(`${getDialect().escape(key)} ${operator} ${getDialect().getPlaceholder(offset + values.length)}`);
+                        conditions.push(`${dialect.escape(key)} ${operator} ${dialect.getPlaceholder(offset + values.length)}`);
                         values.push(operatorValue);
                     }
                 }
@@ -161,7 +189,10 @@ function buildQueryParts(options, valueOffset = 0) {
     }
 
     if (options.having) {
-        throw new Error("Raw string HAVING clauses are not allowed. Use a structured filter instead.");
+        if (typeof options.having !== 'object' || Array.isArray(options.having)) {
+            throw new Error("Raw string HAVING clauses are not allowed. Use a structured filter instead.");
+        }
+        parts.push(`HAVING ${buildWhere(options.having, values, valueOffset)}`);
     }
 
     if (options.orderBy) {
@@ -180,6 +211,15 @@ function buildQueryParts(options, valueOffset = 0) {
 
         parts.push(`LIMIT ${getDialect().getPlaceholder(valueOffset + values.length)}`);
         values.push(options.limit);
+    }
+
+    if (options.offset !== undefined) {
+        if (!Number.isInteger(options.offset) || options.offset < 0) {
+            throw new Error("Invalid OFFSET value");
+        }
+
+        parts.push(`OFFSET ${getDialect().getPlaceholder(valueOffset + values.length)}`);
+        values.push(options.offset);
     }
 
     return {
