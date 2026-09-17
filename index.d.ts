@@ -1621,6 +1621,12 @@ export class MigrationStore {
      */
     writeMigration(plan: MigrationPlan): Promise<string>;
 
+    /** Reads encrypted rollback metadata for a migration. */
+    readMigration(id: string): Promise<any | null>;
+
+    /** Reads an encrypted backup for a migration. */
+    readBackup(id: string): Promise<any | null>;
+
     /**
      * Writes a backup to disk.
      *
@@ -1745,6 +1751,9 @@ export class MigrationRunner {
             allowDestructiveChanges?: boolean;
         }
     ): Promise<any>;
+
+    /** Rolls back the latest applied migration and restores its backup. */
+    rollback(id: string, options?: { allowOutOfOrder?: boolean }): Promise<any>;
 
     /**
      * Generates SQL for a single schema operation.
@@ -2049,6 +2058,9 @@ export class Migration {
      * ```
      */
     status(): Promise<any[]>;
+
+    /** Rolls back the latest applied migration and restores its backup. */
+    rollback(id: string, options?: { allowOutOfOrder?: boolean }): Promise<any>;
 
     /**
      * Removes expired migration files and backups.

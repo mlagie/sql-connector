@@ -134,6 +134,11 @@ class Migration {
         return this.runner.applied();
     }
 
+    async rollback(id, options = {}) {
+        if (!id) throw new Error("A migration id is required for rollback.");
+        return this.runner.rollback(id, options);
+    }
+
     async cleanup() {
         return this.store.cleanup();
     }
@@ -148,6 +153,10 @@ class Migration {
 
     static async status(options = {}) {
         return new Migration(options).status();
+    }
+
+    static async rollback(id, options = {}) {
+        return new Migration(options).rollback(id, options);
     }
 }
 

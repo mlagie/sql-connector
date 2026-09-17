@@ -25,35 +25,64 @@ class PostgreSQLDialect extends Dialect {
     }
 
     mapType(field) {
-        const type = normalizeType(field);
+        const rawType = normalizeType(field);
+        const type = String(rawType || "").toUpperCase();
         const length = field.length || 255;
 
         switch (type) {
-            case "String":
+            case "STRING":
             case "VARCHAR":
+            case "CHARACTER VARYING":
                 return `VARCHAR(${length})`;
-            case "Text":
+            case "CHAR":
+            case "BPCHAR":
+            case "CHARACTER":
+                return `CHAR(${length})`;
+            case "TEXT":
                 return "TEXT";
-            case "Number":
+            case "NUMBER":
             case "INT":
-            case "Integer":
+            case "INT4":
+            case "INTEGER":
                 return "INTEGER";
-            case "Float":
+            case "SMALLINT":
+            case "INT2":
+                return "SMALLINT";
+            case "BIGINT":
+            case "INT8":
+                return "BIGINT";
+            case "DECIMAL":
+            case "NUMERIC":
+                return "DECIMAL";
+            case "FLOAT":
+            case "FLOAT4":
+            case "REAL":
+                return "REAL";
+            case "DOUBLE":
+            case "FLOAT8":
+            case "DOUBLE PRECISION":
                 return "DOUBLE PRECISION";
-            case "Boolean":
+            case "BOOLEAN":
+            case "BOOL":
                 return "BOOLEAN";
-            case "Date":
+            case "DATE":
                 return "DATE";
-            case "DateTime":
-            case "Timestamp":
-            case "Now":
-            case "CurrentTimestamp":
+            case "DATETIME":
+            case "TIMESTAMP":
+            case "NOW":
+            case "CURRENTTIMESTAMP":
                 return "TIMESTAMP";
-            case "Object":
+            case "TIMESTAMPTZ":
+            case "TIMESTAMP WITH TIME ZONE":
+                return "TIMESTAMPTZ";
+            case "OBJECT":
             case "JSON":
+            case "JSONB":
                 return "JSONB";
+            case "UUID":
+                return "UUID";
             default:
-                throw new Error(`Unsupported PostgreSQL type: ${type}`);
+                throw new Error(`Unsupported PostgreSQL type: ${rawType}`);
         }
     }
 

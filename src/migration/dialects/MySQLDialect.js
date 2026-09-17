@@ -25,35 +25,56 @@ class MySQLDialect extends Dialect {
     }
 
     mapType(field) {
-        const type = normalizeType(field);
+        const rawType = normalizeType(field);
+        const type = String(rawType || "").toUpperCase();
         const length = field.length || 255;
 
         switch (type) {
-            case "String":
+            case "STRING":
             case "VARCHAR":
                 return `VARCHAR(${length})`;
-            case "Text":
+            case "CHAR":
+                return `CHAR(${length})`;
+            case "TEXT":
                 return "TEXT";
-            case "Number":
+            case "NUMBER":
             case "INT":
-            case "Integer":
+            case "INTEGER":
                 return "INT";
-            case "Float":
+            case "SMALLINT":
+                return "SMALLINT";
+            case "MEDIUMINT":
+                return "MEDIUMINT";
+            case "BIGINT":
+                return "BIGINT";
+            case "DECIMAL":
+            case "NUMERIC":
+                return "DECIMAL";
+            case "FLOAT":
                 return "DOUBLE";
-            case "Boolean":
+            case "DOUBLE":
+                return "DOUBLE";
+            case "BOOLEAN":
+            case "BOOL":
+            case "TINYINT":
                 return "BOOLEAN";
-            case "Date":
+            case "DATE":
                 return "DATE";
-            case "DateTime":
-            case "Timestamp":
-            case "Now":
-            case "CurrentTimestamp":
+            case "DATETIME":
+            case "TIMESTAMP":
+            case "NOW":
+            case "CURRENTTIMESTAMP":
                 return "DATETIME";
-            case "Object":
+            case "OBJECT":
             case "JSON":
                 return "JSON";
+            case "BLOB":
+                return "BLOB";
+            case "VARBINARY":
+            case "BINARY":
+                return "VARBINARY";
             default:
-                throw new Error(`Unsupported MySQL type: ${type}`);
+                throw new Error(`Unsupported MySQL type: ${rawType}`);
         }
     }
 

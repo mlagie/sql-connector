@@ -17,9 +17,17 @@ class BackupManager {
             tables: {}
         };
 
+        const existing = await this.dialect.execute(
+            this.connection,
+            this.dialect.introspectionQueries().tables
+        );
+        const existingNames = new Set(existing.map(row => row.table_name));
+
         for (const table of tables) {
-            // Backup is intentionally data-oriented rather than DB-specific SQL.
-            // The encrypted file can be inspected/restored by a dedicated tool later.
+            // A table created by the migration does not exist yet and therefore
+            // cannot be backed up. Rollback metadata will remove it if needed.
+            if (!existingNames.has(table)) continue;
+
             const rows = await this.dialect.execute(
                 this.connection,
                 `SELECT * FROM ${this.dialect.escape(table)}`
