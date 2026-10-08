@@ -10,9 +10,7 @@ const {
     MigrationRunner,
     SchemaDiffer,
     SchemaInspector,
-    MySQLDialect,
-    PostgreSQLDialect
-} = require("./src/migration");
+    } = require("./src/migration");
 const { MigrationError, DestructiveMigrationError, MigrationChecksumError } = require("./src/migration/errors");
 
 let client = {};
@@ -31,8 +29,6 @@ module.exports = {
     MigrationRunner,
     SchemaDiffer,
     SchemaInspector,
-    MySQLDialect,
-    PostgreSQLDialect,
     MigrationError,
     DestructiveMigrationError,
     MigrationChecksumError

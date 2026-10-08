@@ -22,7 +22,7 @@ class SchemaInspector {
 
             const columnRows = await this.query(
                 queries.columns,
-                this.dialect.name === "postgres" ? [tableName] : [tableName]
+                [tableName]
             );
             setSafe(tables, tableName, {
                 columns: Object.fromEntries(

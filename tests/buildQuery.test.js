@@ -27,7 +27,10 @@ describe.each(dialectCases)('Utils - buildQuery.js - $name', ({ name, quote }) =
 
         test("Devrait gérer DATE_FORMAT et appliquer l'échappement sur la colonne", () => {
             const select = [{ dateFormat: ['createdAt', '%Y-%m'], as: 'month' }];
-            expect(buildSelect(select)).toBe(`DATE_FORMAT(${quote}createdAt${quote}, '%Y-%m') AS ${quote}month${quote}`);
+            const dateExpression = name === 'postgres'
+                ? `TO_CHAR(${quote}createdAt${quote}, 'YYYY-MM')`
+                : `DATE_FORMAT(${quote}createdAt${quote}, '%Y-%m')`;
+            expect(buildSelect(select)).toBe(`${dateExpression} AS ${quote}month${quote}`);
         });
 
         test('Devrait gérer une colonne simple déclarée via un objet avec alias', () => {
@@ -126,8 +129,11 @@ describe.each(dialectCases)('Utils - buildQuery.js - $name', ({ name, quote }) =
 
         test('Devrait générer la clause GROUP BY et parser correctement DATE_FORMAT', () => {
             const options = { groupBy: ['role', { dateFormat: ['createdAt', '%Y'] }] };
+            const dateExpression = name === 'postgres'
+                ? `TO_CHAR(${quote}createdAt${quote}, 'YYYY')`
+                : `DATE_FORMAT(${quote}createdAt${quote}, '%Y')`;
             expect(buildQueryParts(options)).toEqual({
-                sql: `GROUP BY ${quote}role${quote}, DATE_FORMAT(${quote}createdAt${quote}, '%Y')`,
+                sql: `GROUP BY ${quote}role${quote}, ${dateExpression}`,
                 values: []
             });
         });
@@ -340,7 +346,10 @@ describe.each(dialectCases)('Utils - buildQuery.js - $name', ({ name, quote }) =
             groupBy: ['status', { col: 'role' }, { dateFormat: ['createdAt', '%Y-%m'] }]
         };
         const result = buildQueryParts(options);
-        expect(result.sql).toEqual(`GROUP BY ${quote}status${quote}, ${quote}role${quote}, DATE_FORMAT(${quote}createdAt${quote}, '%Y-%m')`);
+        const dateExpression = name === 'postgres'
+            ? `TO_CHAR(${quote}createdAt${quote}, 'YYYY-MM')`
+            : `DATE_FORMAT(${quote}createdAt${quote}, '%Y-%m')`;
+        expect(result.sql).toEqual(`GROUP BY ${quote}status${quote}, ${quote}role${quote}, ${dateExpression}`);
         expect(result.values).toEqual([]);
     });
 
