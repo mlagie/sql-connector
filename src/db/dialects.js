@@ -1,6 +1,7 @@
 // src/db/dialects.js
 const mysql = require('mysql2');
 const { normalizeType } = require("../migration/utils");
+const { getSafe } = require("../utils/security/safe");
 
 // Ta regex de validation existante (ex: /^[a-zA-Z_][a-zA-Z0-9_]*$/)
 const SAFE_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -66,31 +67,48 @@ function formatPostgresDateFormat(format) {
         .replace(/%s/g, "SS");
 }
 
+const MYSQL_TYPE_MAP = {
+    String: "VARCHAR",
+    Char: "CHAR",
+    Number: "INT",
+    SmallInt: "SMALLINT",
+    BigInt: "BIGINT",
+    Decimal: "DECIMAL",
+    Boolean: "BOOLEAN",
+    Date: "DATETIME",
+    Object: "JSON",
+    Array: "VARCHAR",
+    Now: "NOW()",
+    Float: "FLOAT",
+    Double: "DOUBLE",
+    Text: "TEXT",
+    Blob: "BLOB",
+    Binary: "VARBINARY",
+    Uuid: "CHAR",
+    DateTime: "DATETIME",
+    Timestamp: "TIMESTAMP",
+    CurrentTimestamp: "CURRENT_TIMESTAMP"
+};
+
+const POSTGRES_TYPE_MAP = {
+    ...MYSQL_TYPE_MAP,
+    Date: "TIMESTAMP",
+    Object: "JSONB",
+    Now: "TIMESTAMP",
+    Float: "REAL",
+    Double: "DOUBLE PRECISION",
+    Blob: "BYTEA",
+    Binary: "BYTEA",
+    Uuid: "UUID",
+    DateTime: "TIMESTAMP",
+    Timestamp: "TIMESTAMP",
+    CurrentTimestamp: "TIMESTAMP"
+};
+
 const dialects = {
     mysql: {
         name: "mysql",
-        mapType: (fieldType) => ({
-            String: "VARCHAR",
-            Char: "CHAR",
-            Number: "INT",
-            SmallInt: "SMALLINT",
-            BigInt: "BIGINT",
-            Decimal: "DECIMAL",
-            Boolean: "BOOLEAN",
-            Date: "DATETIME",
-            Object: "JSON",
-            Array: "VARCHAR",
-            Now: "NOW()",
-            Float: "FLOAT",
-            Double: "DOUBLE",
-            Text: "TEXT",
-            Blob: "BLOB",
-            Binary: "VARBINARY",
-            Uuid: "CHAR",
-            DateTime: "DATETIME",
-            Timestamp: "TIMESTAMP",
-            CurrentTimestamp: "CURRENT_TIMESTAMP"
-        })[fieldType],
+        mapType: (fieldType) => getSafe(MYSQL_TYPE_MAP, fieldType),
         // Sécurisé avec ta validation + mysql.escapeId natif
         escape: (identifier) => secureEscape(identifier, (part) => mysql.escapeId(part)),
         escapeValue: (value) => mysql.escape(value),
@@ -129,28 +147,7 @@ const dialects = {
     },
     postgres: {
         name: "postgres",
-        mapType: (fieldType) => ({
-            String: "VARCHAR",
-            Char: "CHAR",
-            Number: "INT",
-            SmallInt: "SMALLINT",
-            BigInt: "BIGINT",
-            Decimal: "DECIMAL",
-            Boolean: "BOOLEAN",
-            Date: "TIMESTAMP",
-            Object: "JSONB",
-            Array: "VARCHAR",
-            Now: "TIMESTAMP",
-            Float: "REAL",
-            Double: "DOUBLE PRECISION",
-            Text: "TEXT",
-            Blob: "BYTEA",
-            Binary: "BYTEA",
-            Uuid: "UUID",
-            DateTime: "TIMESTAMP",
-            Timestamp: "TIMESTAMP",
-            CurrentTimestamp: "TIMESTAMP"
-        })[fieldType],
+        mapType: (fieldType) => getSafe(POSTGRES_TYPE_MAP, fieldType),
         // Sécurisé avec ta validation + standard ANSI SQL (double-quotes doublées pour l'échappement)
         escape: (identifier) => secureEscape(identifier, (part) => `"${part.replace(/"/g, '""')}"`),  
         escapeValue: (value) => {
