@@ -1,5 +1,5 @@
 const { getConnexion } = require("../db/connexion");
-const { getDialect: getConnectorDialect } = require("../db/dialects");
+const { getDialect: getConnectorDialect, createDialect } = require("../db/dialects");
 const { modelsToSnapshot } = require("./SchemaSnapshot");
 const { SchemaInspector } = require("./SchemaInspector");
 const { SchemaDiffer } = require("./SchemaDiffer");
@@ -7,7 +7,6 @@ const { MigrationPlan } = require("./MigrationPlan");
 const { MigrationStore } = require("./MigrationStore");
 const { BackupManager } = require("./BackupManager");
 const { MigrationRunner } = require("./MigrationRunner");
-const { createDialect } = require("./dialects");
 const { migrationId, stableStringify, sha256 } = require("./utils");
 
 function resolveDialect(name) {

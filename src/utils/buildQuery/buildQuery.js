@@ -10,7 +10,7 @@ function buildGroupByItem(group) {
     if (typeof group === 'object') {
         if (group.dateFormat) {
             const [col, format] = group.dateFormat;
-            sql = `DATE_FORMAT(${getDialect().escape(col)}, ${getDialect().escapeValue(format)})`;
+            sql = getDialect().dateFormat(getDialect().escape(col), format);
         }
         if (group.col) {
             sql = getDialect().escape(group.col);
@@ -36,7 +36,7 @@ function buildField(field) {
         sql = `SUM(${getDialect().escape(field.sum)})`;
     else if (field.dateFormat) {
         const [col, format] = field.dateFormat;
-        sql = `DATE_FORMAT(${getDialect().escape(col)}, ${getDialect().escapeValue(format)})`;
+        sql = getDialect().dateFormat(getDialect().escape(col), format);
     }
     else if (field.col)
         sql = getDialect().escape(field.col);
@@ -64,8 +64,7 @@ function buildSelect(select = []) {
 const COMPARISON_OPERATORS = ["=", "!=", ">", "<", ">=", "<=", "LIKE", "NOT LIKE", "ILIKE", "NOT ILIKE", "IN", "NOT IN", "BETWEEN", "NOT BETWEEN"];
 
 function buildCaseInsensitiveLike(dialect, key, placeholder, negate) {
-    if (dialect.name === "postgres") return null;
-    return `${negate ? "NOT " : ""}LOWER(${dialect.escape(key)}) LIKE LOWER(${placeholder})`;
+    return dialect.caseInsensitiveLike(dialect.escape(key), placeholder, negate);
 }
 
 function buildWhere(where, values, offset) {
@@ -139,7 +138,7 @@ function buildWhere(where, values, offset) {
                         const negate = operator === "NOT ILIKE";
                         const fallback = buildCaseInsensitiveLike(dialect, key, placeholder, negate);
 
-                        conditions.push(fallback ?? `${dialect.escape(key)} ${operator} ${placeholder}`);
+                        conditions.push(fallback);
                         values.push(operatorValue);
                     } else if (operatorValue === null && (operator === "=" || operator === "!=")) {
                         conditions.push(`${dialect.escape(key)} IS ${operator === "!=" ? "NOT " : ""}NULL`);

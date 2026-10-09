@@ -26,7 +26,7 @@ function getColumnDefinition(fieldName, field) {
     }
 
     const fieldType = getFieldType(field);
-    const type = getSafe(sqlTypeMap, fieldType);
+    const type = getDialect().mapType(fieldType);
     if (!type) throw new Error(`Field ${fieldName} has unsupported type ${fieldType}.`);
 
     let colDef;
@@ -38,8 +38,8 @@ function getColumnDefinition(fieldName, field) {
         const scale = field.scale >= 0 ? field.scale : 0;
         colDef = `DECIMAL(${precision}, ${scale})`;
     } else {
-        const hasLength = LENGTH_TYPES.has(type) || (type === "INT" && getDialect().name === "mysql");
-        colDef = `${type}${hasLength ? `(${field.length > 0 ? field.length : 255})` : ""}`;
+        const hasLength = LENGTH_TYPES.has(type) || type === "INT";
+        colDef = getDialect().columnType(type, hasLength ? (field.length > 0 ? field.length : 255) : undefined);
     }
 
     if (field.required) colDef += ' NOT NULL';
@@ -48,7 +48,7 @@ function getColumnDefinition(fieldName, field) {
 
     if (defaultDefinition !== null) colDef += ` ${defaultDefinition}`;
     if (field.unique) colDef += ' UNIQUE';
-    if (field.auto_increment) colDef += ' AUTO_INCREMENT';
+    if (field.auto_increment) colDef += ` ${getDialect().autoIncrement(fieldType)}`;
     if (field.primary_key) colDef += ' PRIMARY KEY'
     if (typeof field.customize === 'string' && field.customize.length != 0) colDef += ` ${field.customize}`;
     return `${getDialect().escape(fieldName)} ${colDef}`;
@@ -165,7 +165,7 @@ class Model {
                 return `${getDialect().escape(fieldName)} ENUM(${enumValues})`;
             }
 
-            const type = getSafe(sqlTypeMap, fieldType);
+            const type = getDialect().mapType(fieldType);
 
             if (!type) throw new Error(`Field ${fieldName} has unsupported type ${field}`);
             if (LENGTH_TYPES.has(type)) return `${getDialect().escape(fieldName)} ${type}(${lengthDefault})`;
@@ -183,7 +183,7 @@ class Model {
      */
     async save(data) {
         const keys = Object.keys(data);
-        const sql_request = `INSERT INTO ${getDialect().escape(this.name)} (${getDialect().escapeIdentifierList(keys)}) VALUES (${keys.map(() => "?").join(", ")})`;
+        const sql_request = `INSERT INTO ${getDialect().escape(this.name)} (${getDialect().escapeIdentifierList(keys)}) VALUES (${keys.map((_, index) => getDialect().getPlaceholder(index)).join(", ")})`;
 
         try {
             const result = await getDialect().execute(getConnexion(), sql_request, Object.values(data));
