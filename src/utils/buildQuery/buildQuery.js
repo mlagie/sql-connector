@@ -1,8 +1,6 @@
 const { getDialect } = require("../../db/dialects");
 const { escapeOrderDirection } = require("../sql");
 const buildAggregationField = require("./buildAggregationField");
-const count = require("./count");
-const max = require("./max");
 
 function buildGroupByItem(group) {
     let sql;
