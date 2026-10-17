@@ -363,6 +363,19 @@ export type SelectAggregation = {
     count?: string | string[] | Record<string, any>;
 
     /**
+     * Calculates MAX(column).
+     * 
+     * A string, list of strings or object may be supplied
+     * depending on the query builder expression.
+     * 
+     * @example
+     * ```ts
+     * { max: "created_at", as: "latest" }
+     * ```
+     */
+    max?: string | string[] | Record<string, any>;
+
+    /**
      * Alias assigned to the resulting expression.
      */
     as?: string;

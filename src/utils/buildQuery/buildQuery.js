@@ -1,6 +1,8 @@
 const { getDialect } = require("../../db/dialects");
 const { escapeOrderDirection } = require("../sql");
+const buildAggregationField = require("./buildAggregationField");
 const count = require("./count");
+const max = require("./max");
 
 function buildGroupByItem(group) {
     let sql;
@@ -43,7 +45,9 @@ function buildField(field) {
     else if (field.distinct)
         sql = `DISTINCT ${getDialect().escape(field.distinct)}`;
     else if (field.count)
-        sql = count(field.count);
+        sql = buildAggregationField("COUNT", field.count);
+    else if (field.max)
+        sql = buildAggregationField("MAX", field.max);
     if (field.as)
         sql += ` AS ${getDialect().escape(field.as)}`;
     else if (field.sum)

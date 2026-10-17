@@ -171,36 +171,12 @@ class SchemaDiffer {
 
             /*
              * Second pass:
-             * detect additions and modifications.
-             */
-            for (const [columnName, field] of Object.entries(desiredColumns)) {
-                const currentField = getSafe(virtualCurrentColumns, columnName);
-
-                if (!currentField) {
-                    operations.push({
-                        type: "addColumn",
-                        table: tableName,
-                        column: columnName,
-                        field
-                    });
-
-                    continue;
-                }
-
-                if (!equivalentField(field, currentField)) {
-                    operations.push({
-                        type: "alterColumn",
-                        table: tableName,
-                        column: columnName,
-                        field,
-                        previous: currentField
-                    });
-                }
-            }
-
-            /*
-             * Third pass:
              * detect removed columns.
+             *
+             * Deletions are emitted BEFORE additions/alterations so that a
+             * dropped primary key column (e.g. `uuid`) releases its PRIMARY KEY
+             * before a new one (e.g. `id`) is added; otherwise PostgreSQL fails
+             * with "multiple primary keys for table".
              *
              * Renamed columns are excluded because their old name
              * intentionally disappears from the desired schema.
@@ -228,6 +204,35 @@ class SchemaDiffer {
                     operations.push(operation);
                 }
             }
+            /*
+             * Third pass:
+             * detect additions and modifications (after the deletions).
+             */
+            for (const [columnName, field] of Object.entries(desiredColumns)) {
+                const currentField = getSafe(virtualCurrentColumns, columnName);
+
+                if (!currentField) {
+                    operations.push({
+                        type: "addColumn",
+                        table: tableName,
+                        column: columnName,
+                        field
+                    });
+
+                    continue;
+                }
+
+                if (!equivalentField(field, currentField)) {
+                    operations.push({
+                        type: "alterColumn",
+                        table: tableName,
+                        column: columnName,
+                        field,
+                        previous: currentField
+                    });
+                }
+            }
+
         }
 
         /*
