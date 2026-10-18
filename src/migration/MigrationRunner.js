@@ -61,6 +61,11 @@ class MigrationRunner {
             plan.id
         );
 
+        // The rollback files are written BEFORE the schema is touched: if the
+        // process dies or the write fails, nothing has been changed yet and the
+        // database never ends up "applied" without its rollback metadata.
+        await this.store.writeMigration(plan);
+
         const run = async () => {
             for (const operation of plan.operations) {
                 const sql = this.sqlForOperation(operation);
@@ -75,15 +80,31 @@ class MigrationRunner {
             );
         };
 
-        await this.dialect.transaction(this.connection, run);
-        await this.store.writeMigration(plan);
-        await this.store.writeSnapshot(plan.snapshot);
-        await this.store.cleanup();
+        try {
+            await this.dialect.transaction(this.connection, run);
+        } catch (error) {
+            await this.store.removeMigration(plan.id).catch(() => {});
+            throw error;
+        }
+
+        const warnings = [];
+        try {
+            await this.store.writeSnapshot(plan.snapshot);
+        } catch (error) {
+            warnings.push(`Migration applied but schema snapshot could not be written: ${error.message}`);
+        }
+        try {
+            await this.store.cleanup();
+        } catch (error) {
+            warnings.push(`Migration applied but cleanup failed: ${error.message}`);
+        }
+        for (const warning of warnings) console.warn(warning);
 
         return {
             applied: true,
             plan,
-            backupPath
+            backupPath,
+            ...(warnings.length > 0 ? { warnings } : {})
         };
     }
 

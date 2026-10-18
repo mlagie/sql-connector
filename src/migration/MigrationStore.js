@@ -43,6 +43,11 @@ class MigrationStore {
         return outputPath;
     }
 
+    async removeMigration(id) {
+        await fs.rm(path.join(this.directory, `${id}.sql.enc`), { force: true });
+        await fs.rm(path.join(this.directory, `${id}.meta.json.enc`), { force: true });
+    }
+
     async readMigration(id) {
         await this.ensureDirectories();
         if (!this.encryptionKey) throw new Error("An encryption key is required to read migration files.");
