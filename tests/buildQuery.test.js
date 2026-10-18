@@ -205,6 +205,11 @@ describe.each(dialectCases)('Utils - buildQuery.js - $name', ({ name, quote }) =
             expect(buildSelect(fields)).toBe(`COUNT(*) AS ${quote}total_user${quote}`);
         });
 
+        test('Should safely compile MAX(column) on simple column identifiers', () => {
+            const fields = [{ max: 'id', as: 'max_id' }];
+            expect(buildSelect(fields)).toBe(`MAX(${quote}id${quote}) AS ${quote}max_id${quote}`);
+        });
+
         test('Should safely compile COUNT(column) on structured column identifiers', () => {
             const fields = [{ count: 'id', as: 'unique_ids' }];
             expect(buildSelect(fields)).toBe(`COUNT(${quote}id${quote}) AS ${quote}unique_ids${quote}`);
