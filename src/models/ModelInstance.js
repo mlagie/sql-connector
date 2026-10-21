@@ -152,12 +152,54 @@ class ModelInstance {
     }
 
     /**
-     * Deletes a single entry in the database table.
-     * @param {Object} model An object containing the key-value pairs to use for deletion.
-     * @returns {Promise<Object>} A promise that resolves with the data deleted.
-     * @throws {Error} Throws an error if the deletion fails.
+     * Builds the criteria identifying the current row.
+     * Uses only the primary key column(s) declared in the schema (`primary_key: true`).
+     * Falls back to the whole record when the schema has no primary key, or when
+     * the record does not contain all of its primary key columns.
+     * @private
+     * @returns {Object|null} The criteria object, or null if the record is unusable.
      */
-    async delete(filter = { where: this.getRecordData() }) {
+    _getIdentityCriteria() {
+        let rec = this._getTargetRow();
+        if (typeof rec === 'string') {
+            try { rec = JSON.parse(rec); } catch { return null; }
+        }
+        if (!rec || typeof rec !== 'object') return null;
+
+        const schemaDict = this._schema && this._schema.schemaDict ? this._schema.schemaDict : null;
+        if (schemaDict) {
+            const pkKeys = Object.entries(schemaDict)
+                .filter(([, v]) => v && v.primary_key === true)
+                .map(([k]) => k);
+
+            // Every PK column must be present, otherwise a partial composite key could match several rows
+            if (pkKeys.length > 0 && pkKeys.every(k => Object.prototype.hasOwnProperty.call(rec, k))) {
+                const pkObj = {};
+                for (const k of pkKeys) setSafe(pkObj, k, getSafe(rec, k));
+                return pkObj;
+            }
+        }
+
+        return rec;
+    }
+
+    /**
+     * Deletes a single entry in the database table.
+     * Without argument, deletes the current row identified by its primary key only
+     * (or by the whole record if the schema defines no primary key).
+     * @param {Object} [filter] Options passed to the query builder (e.g. `{ where: {...} }`).
+     * @returns {Promise<number>} 1 if a row was deleted, 0 otherwise.
+     * @throws {Error} Throws an error if the deletion fails, or if the current row cannot be identified.
+     */
+    async delete(filter) {
+        if (filter === undefined) {
+            const criteria = this._getIdentityCriteria();
+            if (!criteria || Object.keys(criteria).length === 0) {
+                throw new Error("Cannot delete: no primary key or record data available to identify the row.");
+            }
+            filter = { where: criteria };
+        }
+
         const { sql: whereClause, values } = buildQueryParts(filter);
         const sql_request = `DELETE FROM ${getDialect().escape(this._name)} ${whereClause}`;
         const result = await getDialect().execute(getConnexion(), sql_request, values).catch((err) => {
