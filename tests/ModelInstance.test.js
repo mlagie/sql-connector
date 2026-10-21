@@ -421,4 +421,95 @@ describe("ModelInstance Unit Tests - v2.0.6", () => {
         spy.mockRestore();
     });
 
+
+    test("delete() sans argument - n'utilise que la clé primaire du schéma", async () => {
+        const schema = new Schema({
+            id: { type: Number, primary_key: true },
+            email: { type: String },
+            username: { type: String }
+        });
+        const instance = new ModelInstance("users", { id: 7, email: "a@b.c", username: "bob" }, schema);
+        mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
+
+        await expect(instance.delete()).resolves.toBe(1);
+        expect(mockExecute.mock.calls[0]).toEqual(["DELETE FROM `users` WHERE `id` = ?", [7]]);
+    });
+
+    test("delete() sans argument - exige toutes les colonnes d'une clé primaire composite", async () => {
+        const schema = new Schema({
+            user_id: { type: Number, primary_key: true },
+            role_id: { type: Number, primary_key: true },
+            note: { type: String }
+        });
+        const instance = new ModelInstance("user_roles", { user_id: 1, role_id: 2, note: "x" }, schema);
+        mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
+
+        await instance.delete();
+        expect(mockExecute.mock.calls[0]).toEqual(["DELETE FROM `user_roles` WHERE `user_id` = ? AND `role_id` = ?", [1, 2]]);
+    });
+
+    test("delete() sans argument - retombe sur l'enregistrement complet sans clé primaire", async () => {
+        const instance = new ModelInstance("users", { id: 1, email: "a@b.c" });
+        mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
+
+        await instance.delete();
+        expect(mockExecute.mock.calls[0]).toEqual(["DELETE FROM `users` WHERE `id` = ? AND `email` = ?", [1, "a@b.c"]]);
+    });
+
+    test("delete() sans argument - refuse de supprimer si la ligne n'est pas identifiable", async () => {
+        const instance = new ModelInstance("users", {});
+        await expect(instance.delete()).rejects.toThrow("Cannot delete");
+        expect(mockExecute).not.toHaveBeenCalled();
+    });
+
+    test("delete() sans argument - parse un enregistrement fourni en chaîne JSON", async () => {
+        const instance = new ModelInstance("users", '{"id":3}');
+        mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
+
+        await expect(instance.delete()).resolves.toBe(1);
+        expect(mockExecute.mock.calls[0]).toEqual(["DELETE FROM `users` WHERE `id` = ?", [3]]);
+    });
+
+    test("delete() sans argument - refuse un enregistrement en chaîne JSON invalide", async () => {
+        const instance = new ModelInstance("users", "pas du json");
+
+        await expect(instance.delete()).rejects.toThrow("Cannot delete");
+        expect(mockExecute).not.toHaveBeenCalled();
+    });
+
+    test.each([
+        ["null", null],
+        ["undefined", undefined],
+        ["un nombre", 42],
+        ["une chaîne JSON primitive", '"abc"']
+    ])("delete() sans argument - refuse un enregistrement non objet (%s)", async (_label, data) => {
+        const instance = new ModelInstance("users", data);
+
+        await expect(instance.delete()).rejects.toThrow("Cannot delete");
+        expect(mockExecute).not.toHaveBeenCalled();
+    });
+
+    test("delete() sans argument - retombe sur l'enregistrement complet si la clé primaire est absente de la ligne", async () => {
+        const schema = new Schema({
+            id: { type: Number, primary_key: true },
+            email: { type: String }
+        });
+        const instance = new ModelInstance("users", { email: "a@b.c" }, schema);
+        mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
+
+        await instance.delete();
+        expect(mockExecute.mock.calls[0]).toEqual(["DELETE FROM `users` WHERE `email` = ?", ["a@b.c"]]);
+    });
+
+    test("delete() sans argument - retombe sur l'enregistrement complet si le schéma n'a aucune clé primaire", async () => {
+        const schema = new Schema({
+            id: { type: Number },
+            email: { type: String }
+        });
+        const instance = new ModelInstance("users", { id: 1, email: "a@b.c" }, schema);
+        mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
+
+        await instance.delete();
+        expect(mockExecute.mock.calls[0]).toEqual(["DELETE FROM `users` WHERE `id` = ? AND `email` = ?", [1, "a@b.c"]]);
+    });
 });

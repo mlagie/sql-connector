@@ -2216,8 +2216,13 @@ export class ModelInstance<
         filter: Record<string, any>
     ): Promise<number>;
 
-    /**
+     /**
      * Deletes the current database row.
+     *
+     * The row is identified by its primary key column(s) only
+     * (`primary_key: true` in the schema). If the schema defines no primary key,
+     * or the record does not contain all of them, the whole record is used.
+     * Throws if the row cannot be identified.
      *
      * @returns Number of affected rows.
      *
