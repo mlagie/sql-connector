@@ -1932,7 +1932,7 @@ export class MigrationError extends Error {
  * }
  * ```
  */
-export class DestructiveMigrationError extends MigrationError {}
+export class DestructiveMigrationError extends MigrationError { }
 
 /**
  * Error raised when a persisted migration checksum does not match
@@ -1940,7 +1940,7 @@ export class DestructiveMigrationError extends MigrationError {}
  *
  * This protects the migration history from unexpected modifications.
  */
-export class MigrationChecksumError extends MigrationError {}
+export class MigrationChecksumError extends MigrationError {  }
 
 /**
  * Main migration manager.
@@ -2215,6 +2215,18 @@ export class ModelInstance<
     delete(
         filter: Record<string, any>
     ): Promise<number>;
+
+    /**
+     * Deletes the current database row.
+     *
+     * @returns Number of affected rows.
+     *
+     * @example
+     * ```ts
+     * await user.delete();
+     * ```
+     */
+    delete(): Promise<number>;
 
     /**
      * Executes a custom SQL query associated with this model instance.
