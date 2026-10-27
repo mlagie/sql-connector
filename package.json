@@ -1,7 +1,7 @@
 {
   "name": "@mlagie/sql-connector",
-  "version": "3.3.3",
-  "description": "The sql-connector module allows you to manage connections to a MySQL database, define table schemas, and interact with data in a simple and efficient way.",
+  "version": "3.3.4",
+  "description": "A typed, dialect-aware SQL toolkit for Node.js with MySQL and PostgreSQL support, declarative schemas, model-based CRUD, query building, and migrations.",
   "main": "index.js",
   "exports": {
     ".": {
@@ -33,20 +33,23 @@
     "access": "public"
   },
   "keywords": [
+    "nodejs",
+    "typescript",
     "sql",
-    "schema",
+    "mysql",
+    "postgresql",
+    "mariadb",
     "database",
-    "orm",
+    "schema",
     "model",
     "query",
+    "query-builder",
+    "crud",
+    "migrations",
     "connector",
-    "mysql2",
-    "sync",
-    "migration",
-    "builder",
-    "pool",
-    "mariadb",
-    "rdbms"
+    "orm",
+    "dialect",
+    "database-toolkit"
   ],
   "author": "lagie-marin",
   "license": "MIT",
