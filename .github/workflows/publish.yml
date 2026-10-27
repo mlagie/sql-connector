@@ -32,7 +32,9 @@ jobs:
       - run: npm run test
 
   check_version:
-    if: github.event_name == 'pull_request'
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -42,7 +44,7 @@ jobs:
       - run: npm run check-version
 
   release:
-    needs: [check_security, integrity]
+    needs: [check_security, integrity, check_version]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
@@ -54,8 +56,6 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 22
-      - name: Vérifier la version
-        run: npm run check-version
       - name: Lire la version
         id: version
         run: echo "version=$(jq -r '.version' package.json)" >> "$GITHUB_OUTPUT"
@@ -70,7 +70,7 @@ jobs:
             --notes-file "releases/$VERSION.md"
 
   publish:
-    needs: [check-version, release]
+    needs: [release, check_version]
     runs-on: ubuntu-latest
     environment: sqlc
     permissions:
