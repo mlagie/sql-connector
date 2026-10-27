@@ -78,3 +78,28 @@ jobs:
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+  rollback:
+    needs: [release, publish]
+    if: ${{ always() && needs.release.result == 'success' && needs.publish.result == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+      - name: Supprimer la release et le tag si la version n'est pas sur npm
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+          PACKAGE: "@mlagie/sql-connector"
+        run: |
+          PUBLISHED=$(npm view "$PACKAGE@$VERSION" version 2>/dev/null || true)
+          if [ -n "$PUBLISHED" ]; then
+            echo "La version $VERSION est déjà sur npm : on ne supprime rien."
+            exit 0
+          fi
+          gh release delete "v$VERSION" \
+            --repo "${{ github.repository }}" \
+            --cleanup-tag \
+            --yes
