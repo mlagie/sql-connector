@@ -11,7 +11,7 @@ on:
 
 jobs:
   check_security:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
@@ -22,7 +22,7 @@ jobs:
       - run: npm run security
 
   integrity:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
@@ -34,7 +34,7 @@ jobs:
   check_version:
     if: >-
       github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
@@ -45,7 +45,7 @@ jobs:
   release:
     needs: [check_security, integrity, check_version]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
     permissions:
@@ -70,7 +70,7 @@ jobs:
 
   publish:
     needs: [release, check_version]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: sqlc
     permissions:
       contents: read
@@ -90,7 +90,7 @@ jobs:
   rollback:
     needs: [release, publish]
     if: ${{ always() && needs.release.result == 'success' && needs.publish.result == 'failure' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
