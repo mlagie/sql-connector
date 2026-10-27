@@ -1,6 +1,6 @@
 {
   "name": "@mlagie/sql-connector",
-  "version": "3.3.4",
+  "version": "3.4.0",
   "description": "A typed, dialect-aware SQL toolkit for Node.js with MySQL and PostgreSQL support, declarative schemas, model-based CRUD, query building, and migrations.",
   "main": "index.js",
   "exports": {

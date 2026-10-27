@@ -25,6 +25,7 @@ function modelsToSnapshot(models) {
         }
 
         tables[model.name] = {
+            oldname: model.oldname ?? null,
             columns: Object.fromEntries(
                 Object.entries(model.schema.schemaDict).map(([name, field]) => [name, fieldToSnapshot(field)])
             )

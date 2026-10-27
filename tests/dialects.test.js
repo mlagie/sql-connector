@@ -117,6 +117,7 @@ describe("migration dialect base class", () => {
         expect(dialect.placeholders(3)).toBe("?, ?, ?");
         expect(concreteDialect.addColumn("users", "name", {})).toContain("ADD COLUMN");
         expect(dialect.renameColumn("users", "old", "new")).toContain("RENAME COLUMN");
+        expect(dialect.renameTable("nexus_users", "users")).toBe("ALTER TABLE `nexus_users` RENAME TO `users`;");
         expect(dialect.dropColumn("users", "name")).toContain("DROP COLUMN");
         expect(dialect.dropTable("users")).toBe("DROP TABLE `users`;");
         expect(dialect.normalizeDatabaseColumn({ id: 1 })).toEqual({ id: 1 });

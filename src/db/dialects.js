@@ -260,6 +260,10 @@ class Dialect {
         return `ALTER TABLE ${this.escape(table)} RENAME COLUMN ${this.escape(oldName)} TO ${this.escape(newName)};`;
     }
 
+    renameTable(oldName, newName) {
+        return `ALTER TABLE ${this.escape(oldName)} RENAME TO ${this.escape(newName)};`;
+    }
+
     alterColumn() {
         throw new Error(`${this.name} does not implement alterColumn().`);
     }

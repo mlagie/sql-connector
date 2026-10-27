@@ -4,6 +4,36 @@ const {
 const { DestructiveMigrationError } = require("../src/migration/errors");
 
 describe("SchemaDiffer", () => {
+    test("renames a table using model oldname metadata without dropping it", () => {
+        const desired = {
+            version: 1,
+            tables: { events: { oldname: "nexus_events", columns: { id: { type: "integer" } } } }
+        };
+        const current = {
+            version: 1,
+            tables: { nexus_events: { columns: { id: { type: "integer" } } } }
+        };
+
+        expect(new SchemaDiffer().diff(desired, current)).toEqual([
+            { type: "renameTable", oldName: "nexus_events", newName: "events" }
+        ]);
+    });
+
+    test("creates a target table when the declared old table is absent", () => {
+        const desired = { version: 1, tables: { events: { oldname: "nexus_events", columns: { id: { type: "integer" } } } } };
+
+        expect(new SchemaDiffer().diff(desired, { version: 1, tables: {} })).toEqual([
+            { type: "createTable", table: "events", schema: { id: { type: "integer" } } }
+        ]);
+    });
+
+    test("rejects a table rename when both names already exist", () => {
+        const desired = { version: 1, tables: { events: { oldname: "nexus_events", columns: {} } } };
+        const current = { version: 1, tables: { events: { columns: {} }, nexus_events: { columns: {} } } };
+
+        expect(() => new SchemaDiffer().diff(desired, current)).toThrow(/already exists/);
+    });
+
     test("treats PostgreSQL Number primary key identity columns as equivalent", () => {
         const desired = {
             version: 1,

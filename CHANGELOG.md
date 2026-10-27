@@ -4,6 +4,12 @@ All notable changes to `@mlagie/sql-connector` are documented here.
 
 ## [Unreleased]
 
+## [3.4.0]
+
+### Added
+
+- Added explicit table renames through model `oldname` metadata, with dialect-safe SQL, collision checks, backup inclusion and rollback support.
+
 ### Documentation
 
 - Reorganized the main README with a professional table of contents and clearer API sections.
