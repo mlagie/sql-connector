@@ -1,201 +1,115 @@
 name: Publish Package
 
 on:
-  workflow_dispatch:
-  release:
-    types: [published]
   push:
     branches:
       - "**"
   pull_request:
     branches:
       - main
-
-concurrency:
-  group: sql-connector-${{ github.ref }}
-  cancel-in-progress: false
+  workflow_dispatch:
 
 jobs:
   check_security:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout GH repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - name: Setup Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 22
-      - name: Install dependencies
-        run: npm ci
-      - name: Audit dependencies
-        run: npm audit
-      - name: Check module security
-        run: npm run security
+      - run: npm ci
+      - run: npm audit
+      - run: npm run security
 
   integrity:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout GH repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - name: Setup Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 22
-      - name: Install dependencies
-        run: npm ci
-      - name: Run integrity check
-        run: npm test
+      - run: npm ci
+      - run: npm run test
+
+  check_version:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+      - run: npm run check-version
+
+  release:
+    needs: [check_security, integrity]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+      - name: Vérifier la version
+        run: npm run check-version
+      - name: Lire la version
+        id: version
+        run: echo "version=$(jq -r '.version' package.json)" >> "$GITHUB_OUTPUT"
+      - name: Créer le tag et la release GitHub
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release create "v$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --notes-file "releases/$VERSION.md"
 
   publish:
-    needs:
-      - check_security
-      - integrity
-    if: >-
-      github.event_name == 'release' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: [release]
     runs-on: ubuntu-latest
     environment: sqlc
     permissions:
-      contents: write
+      contents: read
       id-token: write
-
     steps:
-      - name: Checkout GH repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
-          fetch-depth: 0
-
-      - name: Setup Node.js for npm
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org/
-          scope: "@mlagie"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Prepare GitHub release
-        id: prepare
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PACKAGE: "@mlagie/sql-connector"
-          EVENT_NAME: ${{ github.event_name }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          VERSION="$(node -p "require('./package.json').version")"
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "package.json version must be a stable x.y.z version; found: $VERSION" >&2
-            exit 1
-          fi
-
-          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
-            echo "Run a release from the default branch ($DEFAULT_BRANCH)." >&2
-            exit 1
-          fi
-
-          LATEST_VERSION="$(npm view "$PACKAGE" version)"
-          if [[ ! "$LATEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Could not read a stable latest version for $PACKAGE: $LATEST_VERSION" >&2
-            exit 1
-          fi
-
-          if npm view "$PACKAGE@$VERSION" version >/dev/null 2>&1; then
-            echo "$PACKAGE@$VERSION is already published; nothing to release."
-            echo "should_publish=false" >> "$GITHUB_OUTPUT"
-            echo "release_created=false" >> "$GITHUB_OUTPUT"
-            echo "tag_created=false" >> "$GITHUB_OUTPUT"
-            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-            echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          node -e '
-            const parse = value => value.split(".").map(Number);
-            const [candidate, latest] = process.argv.slice(1).map(parse);
-            const comparison = candidate.reduce((result, part, index) => result || Math.sign(part - latest[index]), 0);
-            if (comparison <= 0) {
-              console.error(`package.json version ${process.argv[1]} must be greater than npm version ${process.argv[2]}.`);
-              process.exit(1);
-            }
-          ' "$VERSION" "$LATEST_VERSION"
-
-          if [[ "$EVENT_NAME" == "release" ]]; then
-            if [[ "$RELEASE_TAG" != "v$VERSION" ]]; then
-              echo "Release tag $RELEASE_TAG does not match package.json version $VERSION." >&2
-              exit 1
-            fi
-            echo "should_publish=true" >> "$GITHUB_OUTPUT"
-            echo "release_created=false" >> "$GITHUB_OUTPUT"
-            echo "tag_created=false" >> "$GITHUB_OUTPUT"
-            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-            echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          TAG="v$VERSION"
-          RELEASE_CREATED=false
-          TAG_CREATED=false
-
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "GitHub release $TAG already exists; reusing it."
-          else
-            if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-              echo "Git tag $TAG already exists and will be preserved if npm publishing fails."
-            else
-              TAG_CREATED=true
-            fi
-            gh release create "$TAG" \
-              --target "$GITHUB_SHA" \
-              --title "$TAG" \
-              --generate-notes
-            RELEASE_CREATED=true
-          fi
-
-          echo "should_publish=true" >> "$GITHUB_OUTPUT"
-          echo "release_created=$RELEASE_CREATED" >> "$GITHUB_OUTPUT"
-          echo "tag_created=$TAG_CREATED" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Publish package to npm
-        if: steps.prepare.outputs.should_publish == 'true'
-        run: npm publish --provenance --access public
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org/"
+          scope: "@focus-labs"
+      - run: npm ci
+      - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Roll back GitHub release if npm did not publish the version
-        if: failure() && steps.prepare.outputs.release_created == 'true'
+  rollback:
+    needs: [release, publish]
+    if: ${{ always() && needs.release.result == 'success' && needs.publish.result == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+      - name: Supprimer la release et le tag si la version n'est pas sur npm
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
           PACKAGE: "@mlagie/sql-connector"
-          VERSION: ${{ steps.prepare.outputs.version }}
-          TAG: ${{ steps.prepare.outputs.tag }}
-          TAG_CREATED: ${{ steps.prepare.outputs.tag_created }}
-        shell: bash
         run: |
-          set -euo pipefail
-
-          if ! VERSIONS="$(npm view "$PACKAGE" versions --json)"; then
-            echo "Cannot verify npm after the publish error; keeping release $TAG to avoid deleting a published version."
+          PUBLISHED=$(npm view "$PACKAGE@$VERSION" version 2>/dev/null || true)
+          if [ -n "$PUBLISHED" ]; then
+            echo "La version $VERSION est déjà sur npm : on ne supprime rien."
             exit 0
           fi
-
-          if node -e '
-            const versions = JSON.parse(process.argv[1]);
-            const published = Array.isArray(versions) ? versions : [versions];
-            process.exit(published.includes(process.argv[2]) ? 0 : 1);
-          ' "$VERSIONS" "$VERSION"; then
-            echo "$PACKAGE@$VERSION exists on npm; keeping release $TAG."
-            exit 0
-          fi
-
-          gh release delete "$TAG" --yes
-          if [[ "$TAG_CREATED" == "true" ]]; then
-            gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$TAG"
-          fi
+          gh release delete "v$VERSION" \
+            --repo "${{ github.repository }}" \
+            --cleanup-tag \
+            --yes
