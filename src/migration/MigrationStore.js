@@ -17,7 +17,14 @@ class MigrationStore {
         await fs.mkdir(this.backupDirectory, { recursive: true, mode: 0o700 });
     }
 
+    validateId(id) {
+        if (typeof id !== "string" || !/^[A-Za-z0-9_-]{1,191}$/.test(id)) {
+            throw new Error("Invalid migration or backup identifier.");
+        }
+    }
+
     async writeMigration(plan) {
+        this.validateId(plan.id);
         await this.ensureDirectories();
         if (!this.encryptionKey) {
             throw new Error("An encryption key is required to write migration files.");
@@ -44,11 +51,13 @@ class MigrationStore {
     }
 
     async removeMigration(id) {
+        this.validateId(id);
         await fs.rm(path.join(this.directory, `${id}.sql.enc`), { force: true });
         await fs.rm(path.join(this.directory, `${id}.meta.json.enc`), { force: true });
     }
 
     async readMigration(id) {
+        this.validateId(id);
         await this.ensureDirectories();
         if (!this.encryptionKey) throw new Error("An encryption key is required to read migration files.");
         const file = path.join(this.directory, `${id}.meta.json.enc`);
@@ -61,6 +70,7 @@ class MigrationStore {
     }
 
     async readBackup(id) {
+        this.validateId(id);
         await this.ensureDirectories();
         if (!this.encryptionKey) throw new Error("An encryption key is required to read backups.");
         const file = path.join(this.backupDirectory, `${id}.json.enc`);
@@ -73,6 +83,7 @@ class MigrationStore {
     }
 
     async writeBackup(name, content) {
+        this.validateId(name);
         await this.ensureDirectories();
         if (!this.retention) return null;
         if (!this.encryptionKey) {
