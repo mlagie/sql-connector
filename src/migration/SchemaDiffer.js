@@ -29,7 +29,10 @@ function normalizeType(type) {
         datetime: "datetime",
         timestamp: "timestamp",
 
-        text: "text"
+        text: "text",
+        object: "jsonb",
+        json: "jsonb",
+        jsonb: "jsonb"
     };
 
     return getSafe(aliases, value) || value;
