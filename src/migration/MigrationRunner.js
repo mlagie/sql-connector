@@ -56,8 +56,12 @@ class MigrationRunner {
                 .map(operation => operation.table)
         )];
 
+        for (const operation of plan.operations) {
+            if (operation.type === "renameTable") affectedTables.push(operation.oldName);
+        }
+
         const backupPath = await this.backupManager.backupTables(
-            affectedTables,
+            [...new Set(affectedTables)],
             plan.id
         );
 
@@ -127,7 +131,10 @@ class MigrationRunner {
         if (!metadata) throw new Error(`Rollback metadata for migration '${id}' was not found.`);
         this.store.validateChecksum(metadata.checksum, existing.checksum);
 
-        const backup = await this.store.readBackup(id);
+        let backup = await this.store.readBackup(id);
+        if (!backup && metadata.operations.every(operation => ["renameTable", "renameColumn", "alterColumn"].includes(operation.type))) {
+            backup = { tables: {} };
+        }
         if (!backup) throw new Error(`Backup for migration '${id}' was not found. Rollback aborted.`);
 
         const operations = this.buildRollbackOperations(metadata);
@@ -155,6 +162,8 @@ class MigrationRunner {
                     return { type: "dropColumn", table: operation.table, column: operation.column, destructive: true };
                 case "renameColumn":
                     return { type: "renameColumn", table: operation.table, oldName: operation.newName, newName: operation.oldName };
+                case "renameTable":
+                    return { type: "renameTable", oldName: operation.newName, newName: operation.oldName };
                 case "alterColumn": {
                     const previous = operation.previous || previousTables[operation.table]?.columns?.[operation.column];
                     if (!previous) throw new Error(`Cannot rollback alterColumn '${operation.table}.${operation.column}': previous definition is missing.`);
@@ -200,6 +209,8 @@ class MigrationRunner {
                 return this.dialect.addColumn(operation.table, operation.column, operation.field);
             case "renameColumn":
                 return this.dialect.renameColumn(operation.table, operation.oldName, operation.newName);
+            case "renameTable":
+                return this.dialect.renameTable(operation.oldName, operation.newName);
             case "alterColumn":
                 return this.dialect.alterColumn(operation.table, operation.column, operation.field);
             case "dropColumn":

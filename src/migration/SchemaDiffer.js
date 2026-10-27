@@ -11,6 +11,7 @@ function normalizeType(type) {
         "character varying": "varchar",
 
         integer: "integer",
+        number: "integer",
         int: "integer",
         int4: "integer",
 
@@ -28,7 +29,10 @@ function normalizeType(type) {
         datetime: "datetime",
         timestamp: "timestamp",
 
-        text: "text"
+        text: "text",
+        object: "jsonb",
+        json: "jsonb",
+        jsonb: "jsonb"
     };
 
     return getSafe(aliases, value) || value;
@@ -38,10 +42,11 @@ function normalizeField(field) {
     return {
         type: normalizeType(field.type),
         length: field.length ?? null,
-        required: Boolean(field.required),
+        required: Boolean(field.required || field.primary_key),
         default: field.default ?? null,
         unique: Boolean(field.unique),
-        auto_increment: Boolean(field.auto_increment),
+        auto_increment: Boolean(field.auto_increment) ||
+            (typeof field.customize === "string" && /\bGENERATED\s+(?:ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY\b/i.test(field.customize)),
         primary_key: Boolean(field.primary_key)
     };
 }
@@ -66,22 +71,42 @@ class SchemaDiffer {
 
         const desiredTables = desired.tables || {};
         const currentTables = current.tables || {};
+        const renamedTables = new Set();
 
         for (const [tableName, desiredTable] of Object.entries(desiredTables)) {
             const desiredColumns = desiredTable.columns || {};
+            let currentTableName = tableName;
+            let currentTable = getSafe(currentTables, tableName);
+
+            if (!currentTable && desiredTable.oldname) {
+                if (desiredTable.oldname === tableName) {
+                    throw new Error(`Table '${tableName}' cannot have oldname equal to itself.`);
+                }
+                const oldTable = getSafe(currentTables, desiredTable.oldname);
+                if (oldTable) {
+                    if (renamedTables.has(desiredTable.oldname)) {
+                        throw new Error(`Table '${desiredTable.oldname}' is used by multiple oldname declarations.`);
+                    }
+                    operations.push({ type: "renameTable", oldName: desiredTable.oldname, newName: tableName });
+                    renamedTables.add(desiredTable.oldname);
+                    currentTableName = tableName;
+                    currentTable = oldTable;
+                }
+            } else if (currentTable && desiredTable.oldname && desiredTable.oldname !== tableName && getSafe(currentTables, desiredTable.oldname)) {
+                throw new Error(`Cannot rename table '${desiredTable.oldname}' to '${tableName}' because '${tableName}' already exists.`);
+            }
 
             // Table does not exist yet.
-            if (!getSafe(currentTables, tableName)) {
+            if (!currentTable) {
                 operations.push({
                     type: "createTable",
-                    table: tableName,
+                    table: currentTableName,
                     schema: desiredColumns
                 });
 
                 continue;
             }
 
-            const currentTable = getSafe(currentTables, tableName);
             const currentColumns = getSafe(currentTable, "columns") || {};
 
             /*
@@ -126,7 +151,7 @@ class SchemaDiffer {
                 }
                 const operation = {
                     type: "renameColumn",
-                    table: tableName,
+                    table: currentTableName,
                     oldName,
                     newName
                 };
@@ -189,7 +214,7 @@ class SchemaDiffer {
                 if (!getSafe(desiredColumns, currentName)) {
                     const operation = {
                         type: "dropColumn",
-                        table: tableName,
+                        table: currentTableName,
                         column: currentName,
                         destructive: true
                     };
@@ -214,7 +239,7 @@ class SchemaDiffer {
                 if (!currentField) {
                     operations.push({
                         type: "addColumn",
-                        table: tableName,
+                        table: currentTableName,
                         column: columnName,
                         field
                     });
@@ -225,7 +250,7 @@ class SchemaDiffer {
                 if (!equivalentField(field, currentField)) {
                     operations.push({
                         type: "alterColumn",
-                        table: tableName,
+                        table: currentTableName,
                         column: columnName,
                         field,
                         previous: currentField
@@ -239,7 +264,7 @@ class SchemaDiffer {
          * Detect removed tables.
          */
         for (const tableName of Object.keys(currentTables)) {
-            if (!getSafe(desiredTables, tableName)) {
+            if (!getSafe(desiredTables, tableName) && !renamedTables.has(tableName)) {
                 const operation = {
                     type: "dropTable",
                     table: tableName,

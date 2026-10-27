@@ -572,6 +572,7 @@ Le diff peut générer :
 - `createTable` ;
 - `addColumn` ;
 - `renameColumn` ;
+- `renameTable` ;
 - `alterColumn` ;
 - `dropColumn` — destructif ;
 - `dropTable` — destructif.
@@ -587,6 +588,14 @@ email_address: {
   oldname: 'email',
 }
 ```
+
+Pour renommer une table, indiquez son ancien nom dans les options du modèle :
+
+```js
+const events = new Model('events', schema, { oldname: 'nexus_events' });
+```
+
+Si l'ancienne table existe et que la nouvelle n'existe pas, le plan génère un `ALTER TABLE ... RENAME TO ...` qui conserve les données. L'ancienne table figure dans la sauvegarde si la rétention est activée ; un rollback composé uniquement de changements de nom et de définitions ne requiert pas de sauvegarde, car il ne supprime pas les lignes. Si les deux noms existent, la planification échoue afin de ne pas choisir silencieusement entre deux tables.
 
 ### Changements destructifs
 

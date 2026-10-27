@@ -111,6 +111,7 @@ The differ can generate:
 - `createTable`;
 - `addColumn`;
 - `renameColumn`;
+- `renameTable`;
 - `alterColumn`;
 - `dropColumn`;
 - `dropTable`.
@@ -132,6 +133,14 @@ const schema = new Schema({
 ```
 
 The differ checks that the old column exists and that the new name is not already occupied.
+
+Table renames are also explicit. Pass the old table name as model metadata:
+
+```js
+const events = new Model('events', schema, { oldname: 'nexus_events' });
+```
+
+When `nexus_events` exists and `events` does not, the plan emits `ALTER TABLE ... RENAME TO ...`. The operation preserves table data and is reversed by rollback. If backup retention is enabled, the old table is included in the migration backup; a rename-only rollback does not require a backup because the DDL preserves every row. If the old table does not exist, the migration treats this as a new table. If both names exist, planning fails to avoid silently choosing one copy of the data.
 
 ## Destructive changes
 

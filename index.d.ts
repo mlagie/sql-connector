@@ -925,6 +925,9 @@ export class Model<TSchema extends SchemaDict = SchemaDict> {
      */
     schema: SchemaLike<TSchema>;
 
+    /** Previous database table name to rename from during an explicit migration. */
+    oldname?: string;
+
     /**
      * Creates a model.
      *
@@ -933,7 +936,8 @@ export class Model<TSchema extends SchemaDict = SchemaDict> {
      */
     constructor(
         name: string,
-        schema: SchemaLike<TSchema>
+        schema: SchemaLike<TSchema>,
+        options?: { oldname?: string }
     );
 
     /**
