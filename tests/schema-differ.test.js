@@ -21,6 +21,23 @@ describe("SchemaDiffer", () => {
         expect(new SchemaDiffer().diff(desired, current)).toEqual([]);
     });
 
+    test("treats JSON object defaults as equivalent to PostgreSQL JSONB defaults", () => {
+        const desired = {
+            version: 1,
+            tables: { nexus_events: { columns: {
+                details: { type: "Object", required: true, default: {} }
+            } } }
+        };
+        const current = {
+            version: 1,
+            tables: { nexus_events: { columns: {
+                details: { type: "jsonb", required: true, default: {} }
+            } } }
+        };
+
+        expect(new SchemaDiffer().diff(desired, current)).toEqual([]);
+    });
+
     test("renames a column using oldname", () => {
         const desired = {
             version: 1,
