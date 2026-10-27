@@ -11,6 +11,7 @@ function normalizeType(type) {
         "character varying": "varchar",
 
         integer: "integer",
+        number: "integer",
         int: "integer",
         int4: "integer",
 
@@ -38,10 +39,11 @@ function normalizeField(field) {
     return {
         type: normalizeType(field.type),
         length: field.length ?? null,
-        required: Boolean(field.required),
+        required: Boolean(field.required || field.primary_key),
         default: field.default ?? null,
         unique: Boolean(field.unique),
-        auto_increment: Boolean(field.auto_increment),
+        auto_increment: Boolean(field.auto_increment) ||
+            (typeof field.customize === "string" && /\bGENERATED\s+(?:ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY\b/i.test(field.customize)),
         primary_key: Boolean(field.primary_key)
     };
 }
