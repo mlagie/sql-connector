@@ -623,6 +623,13 @@ class PostgreSQLDialect extends Dialect {
             }
             return `DEFAULT '${value.replace(/'/g, "''")}'`;
         }
+        if (typeof value === "object") {
+            const json = JSON.stringify(value);
+            if (json === undefined) {
+                throw new Error("PostgreSQL JSON defaults must be serializable.");
+            }
+            return `DEFAULT '${json.replace(/'/g, "''")}'`;
+        }
         return `DEFAULT '${String(value).replace(/'/g, "''")}'`;
     }
 
@@ -744,6 +751,7 @@ class PostgreSQLDialect extends Dialect {
         const isSerial = typeof row.column_default === "string" &&
             row.column_default.includes("nextval(");
         const isIdentity = row.is_identity === "YES" || row.is_identity === true;
+        const defaultValue = this.normalizeDatabaseDefault(row.column_default, type);
 
         return {
             type,
@@ -752,8 +760,21 @@ class PostgreSQLDialect extends Dialect {
             primary_key: row.is_primary_key === true,
             unique: row.is_unique === true,
             auto_increment: isSerial || isIdentity,
-            default: row.column_default
+            default: defaultValue
         };
+    }
+
+    normalizeDatabaseDefault(value, type) {
+        if (typeof value !== "string" || (type !== "json" && type !== "jsonb")) return value;
+
+        const match = /^'((?:''|[^'])*)'::(?:pg_catalog\.)?jsonb?$/i.exec(value.trim());
+        if (!match) return value;
+
+        try {
+            return JSON.parse(match[1].replace(/''/g, "'"));
+        } catch {
+            return value;
+        }
     }
 
     createMigrationTable() {
