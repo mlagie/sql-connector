@@ -679,9 +679,11 @@ class PostgreSQLDialect extends Dialect {
             clauses.push(`ALTER COLUMN ${this.escape(name)} DROP NOT NULL`);
         }
 
-        if (field.default === undefined) {
+        const isIdentity = field.auto_increment ||
+            (typeof field.customize === "string" && /\bGENERATED\s+(?:ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY\b/i.test(field.customize));
+        if (field.default === undefined && !isIdentity) {
             clauses.push(`ALTER COLUMN ${this.escape(name)} DROP DEFAULT`);
-        } else {
+        } else if (field.default !== undefined && !isIdentity) {
             clauses.push(`ALTER COLUMN ${this.escape(name)} SET ${this.defaultSql(field.default)}`);
         }
 
@@ -703,11 +705,36 @@ class PostgreSQLDialect extends Dialect {
                     udt_name,
                     is_nullable,
                     column_default,
-                    character_maximum_length
-                FROM information_schema.columns
-                WHERE table_schema = current_schema()
-                  AND table_name = $1
-                ORDER BY ordinal_position
+                    character_maximum_length,
+                    is_identity,
+                    EXISTS (
+                        SELECT 1
+                        FROM information_schema.table_constraints tc
+                        JOIN information_schema.key_column_usage kcu
+                          ON kcu.constraint_catalog = tc.constraint_catalog
+                         AND kcu.constraint_schema = tc.constraint_schema
+                         AND kcu.constraint_name = tc.constraint_name
+                        WHERE tc.table_schema = c.table_schema
+                          AND tc.table_name = c.table_name
+                          AND tc.constraint_type = 'PRIMARY KEY'
+                          AND kcu.column_name = c.column_name
+                    ) AS is_primary_key,
+                    EXISTS (
+                        SELECT 1
+                        FROM information_schema.table_constraints tc
+                        JOIN information_schema.key_column_usage kcu
+                          ON kcu.constraint_catalog = tc.constraint_catalog
+                         AND kcu.constraint_schema = tc.constraint_schema
+                         AND kcu.constraint_name = tc.constraint_name
+                        WHERE tc.table_schema = c.table_schema
+                          AND tc.table_name = c.table_name
+                          AND tc.constraint_type = 'UNIQUE'
+                          AND kcu.column_name = c.column_name
+                    ) AS is_unique
+                FROM information_schema.columns c
+                WHERE c.table_schema = current_schema()
+                  AND c.table_name = $1
+                ORDER BY c.ordinal_position
             `
         };
     }
@@ -716,14 +743,15 @@ class PostgreSQLDialect extends Dialect {
         const type = String(row.udt_name || row.data_type || "").toLowerCase();
         const isSerial = typeof row.column_default === "string" &&
             row.column_default.includes("nextval(");
+        const isIdentity = row.is_identity === "YES" || row.is_identity === true;
 
         return {
             type,
             length: row.character_maximum_length ?? undefined,
             required: row.is_nullable === "NO",
-            primary_key: false,
-            unique: false,
-            auto_increment: isSerial,
+            primary_key: row.is_primary_key === true,
+            unique: row.is_unique === true,
+            auto_increment: isSerial || isIdentity,
             default: row.column_default
         };
     }
